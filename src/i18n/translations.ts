@@ -7,6 +7,12 @@
     settings: "Settings",
     changeLanguage: "Change language",
     currentLanguage: "Current language",
+
+    totalAssets: "Total assets",
+    addAsset: "Add asset",
+    noAssetsYet: "No assets yet",
+    assetName: "Asset name",
+    assetValue: "Asset value",
   },
 
   de: {
@@ -17,6 +23,12 @@
     settings: "Einstellungen",
     changeLanguage: "Sprache ändern",
     currentLanguage: "Aktuelle Sprache",
+
+    totalAssets: "Gesamtvermögen",
+    addAsset: "Vermögen hinzufügen",
+    noAssetsYet: "Noch keine Vermögenswerte",
+    assetName: "Name des Vermögenswerts",
+    assetValue: "Wert des Vermögenswerts",
   },
 
   uk: {
@@ -27,5 +39,11 @@
     settings: "Налаштування",
     changeLanguage: "Змінити мову",
     currentLanguage: "Поточна мова",
+
+    totalAssets: "Загальні активи",
+    addAsset: "Додати актив",
+    noAssetsYet: "Активів поки немає",
+    assetName: "Назва активу",
+    assetValue: "Вартість активу",
   },
 } as const;
