@@ -1,30 +1,32 @@
 ﻿import { create } from "zustand";
 
+export type AssetType = "crypto" | "stock" | "cash";
+
 export type Asset = {
   id: string;
+  assetId: string;
+  symbol: string;
   name: string;
-  value: number;
+  type: AssetType;
+  quantity: number;
+  buyPrice: number;
+  currentPrice: number;
+  currency: "EUR";
+  rate: number;
 };
 
 type FinanceState = {
   assets: Asset[];
-  addAsset: (name: string, value: number) => void;
+  addAsset: (asset: Asset) => void;
   removeAsset: (id: string) => void;
 };
 
 export const useFinanceStore = create<FinanceState>((set) => ({
   assets: [],
 
-  addAsset: (name, value) =>
+  addAsset: (asset) =>
     set((state) => ({
-      assets: [
-        ...state.assets,
-        {
-          id: Date.now().toString(),
-          name,
-          value,
-        },
-      ],
+      assets: [...state.assets, asset],
     })),
 
   removeAsset: (id) =>

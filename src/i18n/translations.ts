@@ -13,6 +13,18 @@
     noAssetsYet: "No assets yet",
     assetName: "Asset name",
     assetValue: "Asset value",
+
+    searchAsset: "Search asset",
+    quantity: "Quantity",
+    buyPricePerUnit: "Buy price per 1 unit (EUR)",
+    annualRateOptional: "Annual rate % (optional)",
+    currentPrice: "Current price",
+    currentValue: "Current value",
+    profitLoss: "Profit/Loss",
+
+    buyPrice: "Buy price",
+    value: "Value",
+    annualRate: "Annual rate",
   },
 
   de: {
@@ -29,6 +41,18 @@
     noAssetsYet: "Noch keine Vermögenswerte",
     assetName: "Name des Vermögenswerts",
     assetValue: "Wert des Vermögenswerts",
+
+    searchAsset: "Asset suchen",
+    quantity: "Menge",
+    buyPricePerUnit: "Kaufpreis pro 1 Einheit (EUR)",
+    annualRateOptional: "Jahreszins % (optional)",
+    currentPrice: "Aktueller Preis",
+    currentValue: "Aktueller Wert",
+    profitLoss: "Gewinn/Verlust",
+
+    buyPrice: "Kaufpreis",
+    value: "Wert",
+    annualRate: "Jahreszins",
   },
 
   uk: {
@@ -45,5 +69,17 @@
     noAssetsYet: "Активів поки немає",
     assetName: "Назва активу",
     assetValue: "Вартість активу",
+
+    searchAsset: "Пошук активу",
+    quantity: "Кількість",
+    buyPricePerUnit: "Ціна купівлі за 1 одиницю (EUR)",
+    annualRateOptional: "Річна ставка % (необов’язково)",
+    currentPrice: "Поточна ціна",
+    currentValue: "Поточна вартість",
+    profitLoss: "Прибуток/збиток",
+
+    buyPrice: "Ціна купівлі",
+    value: "Вартість",
+    annualRate: "Річна ставка",
   },
 } as const;

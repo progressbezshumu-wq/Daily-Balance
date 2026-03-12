@@ -12,26 +12,66 @@ export default function AssetsScreen() {
   const language = useSettingsStore((state) => state.language) ?? "en";
 
   const t = translations[language];
-  const total = assets.reduce((sum, asset) => sum + asset.value, 0);
+
+  const total = assets.reduce(
+    (sum, asset) => sum + asset.quantity * asset.currentPrice,
+    0
+  );
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>{t.assets}</Text>
 
       <Text style={styles.total}>
-        {t.totalAssets}: {total}
+        {t.totalAssets}: {total.toFixed(2)} EUR
       </Text>
 
       {assets.length === 0 && (
         <Text style={styles.empty}>{t.noAssetsYet}</Text>
       )}
 
-      {assets.map((asset) => (
-        <View key={asset.id} style={styles.card}>
-          <Text style={styles.cardTitle}>{asset.name}</Text>
-          <Text style={styles.cardValue}>{asset.value}</Text>
-        </View>
-      ))}
+      {assets.map((asset) => {
+        const currentValue = asset.quantity * asset.currentPrice;
+        const buyValue = asset.quantity * asset.buyPrice;
+
+        const profit = currentValue - buyValue;
+        const profitPercent =
+          buyValue !== 0 ? (profit / buyValue) * 100 : 0;
+
+        const color = profit >= 0 ? "#3fb950" : "#ff4d4f";
+
+        return (
+          <View key={asset.id} style={styles.card}>
+            <Text style={styles.cardTitle}>
+              {asset.symbol} — {asset.name}
+            </Text>
+
+            <Text style={styles.cardLine}>
+              {t.quantity}: {asset.quantity}
+            </Text>
+
+            <Text style={styles.cardLine}>
+              {t.buyPrice}: {asset.buyPrice} EUR
+            </Text>
+
+            <Text style={styles.cardLine}>
+              {t.currentPrice}: {asset.currentPrice} EUR
+            </Text>
+
+            <Text style={styles.cardLine}>
+              {t.value}: {currentValue.toFixed(2)} EUR
+            </Text>
+
+            <Text style={[styles.cardLine, { color }]}>
+              {t.profitLoss}: {profit.toFixed(2)} EUR ({profitPercent.toFixed(2)}%)
+            </Text>
+
+            <Text style={styles.cardLine}>
+              {t.annualRate}: {asset.rate}%
+            </Text>
+          </View>
+        );
+      })}
 
       <Pressable
         style={styles.addButton}
@@ -81,11 +121,12 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 16,
     fontWeight: "600",
+    marginBottom: 8,
   },
 
-  cardValue: {
+  cardLine: {
     color: "#8b93a7",
-    marginTop: 4,
+    marginBottom: 4,
   },
 
   addButton: {
