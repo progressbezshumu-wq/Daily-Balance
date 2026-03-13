@@ -2,6 +2,14 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
+export type AssetCategory =
+  | "stock"
+  | "etf"
+  | "crypto"
+  | "staking"
+  | "deposit"
+  | "cash";
+
 export type Asset = {
   id: string;
   symbol: string;
@@ -10,15 +18,18 @@ export type Asset = {
   buyPrice: number;
   currentPrice: number;
   rate: number;
+  category: AssetCategory;
 };
 
 type NewAsset = Omit<Asset, "id">;
 
 type FinanceStore = {
   assets: Asset[];
+
   addAsset: (asset: NewAsset) => void;
   deleteAsset: (id: string) => void;
   updateAsset: (id: string, updatedFields: Partial<NewAsset>) => void;
+
   clearAssets: () => void;
 };
 
@@ -33,6 +44,7 @@ export const useFinanceStore = create<FinanceStore>()(
             ...state.assets,
             {
               ...asset,
+              category: asset.category ?? "crypto",
               id: Math.random().toString(36).slice(2, 11),
             },
           ],

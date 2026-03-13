@@ -25,25 +25,69 @@ function getPassiveIncomeColor(value: number) {
   return "#c9d1d9";
 }
 
+function toSafeNumber(value: unknown) {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : 0;
+}
+
+function getLiabilityYearlyValue(liability: any) {
+  const paymentAmount = toSafeNumber(liability?.paymentAmount);
+  const paymentPeriod = liability?.paymentPeriod;
+
+  if (paymentPeriod === "daily") return paymentAmount * 365;
+  if (paymentPeriod === "monthly") return paymentAmount * 12;
+  if (paymentPeriod === "yearly") return paymentAmount;
+
+  return toSafeNumber(liability?.yearlyPayment);
+}
+
 export default function OverviewScreen() {
   const assets = useFinanceStore((state) => state.assets);
   const liabilities = useLiabilityStore((state) => state.liabilities);
   const language = useSettingsStore((state) => state.language) ?? "en";
 
-  const netWorth = assets.reduce(
-    (sum, asset) => sum + asset.quantity * asset.currentPrice,
-    0
-  );
-
-  const passiveIncomePerYear = assets.reduce((sum, asset) => {
-    const value = asset.quantity * asset.currentPrice;
-    return sum + value * (asset.rate / 100);
+  const netWorth = assets.reduce((sum, asset) => {
+    return sum + toSafeNumber(asset.quantity) * toSafeNumber(asset.currentPrice);
   }, 0);
 
-  const liabilitiesPerYear = liabilities.reduce(
-    (sum, liability) => sum + liability.yearlyPayment,
-    0
-  );
+  const stakingIncomePerYear = assets.reduce((sum, asset) => {
+    if (asset.category !== "staking") return sum;
+
+    const value =
+      toSafeNumber(asset.quantity) * toSafeNumber(asset.currentPrice);
+
+    return sum + value * (toSafeNumber(asset.rate) / 100);
+  }, 0);
+
+  const depositIncomePerYear = assets.reduce((sum, asset) => {
+    if (asset.category !== "deposit") return sum;
+
+    const value =
+      toSafeNumber(asset.quantity) * toSafeNumber(asset.currentPrice);
+
+    return sum + value * (toSafeNumber(asset.rate) / 100);
+  }, 0);
+
+  const otherPassiveIncomePerYear = assets.reduce((sum, asset) => {
+    if (asset.category === "staking" || asset.category === "deposit") {
+      return sum;
+    }
+
+    const value =
+      toSafeNumber(asset.quantity) * toSafeNumber(asset.currentPrice);
+    const rate = toSafeNumber(asset.rate);
+
+    if (rate <= 0) return sum;
+
+    return sum + value * (rate / 100);
+  }, 0);
+
+  const passiveIncomePerYear =
+    stakingIncomePerYear + depositIncomePerYear + otherPassiveIncomePerYear;
+
+  const liabilitiesPerYear = liabilities.reduce((sum, liability) => {
+    return sum + getLiabilityYearlyValue(liability);
+  }, 0);
 
   const dailyBalance = (passiveIncomePerYear - liabilitiesPerYear) / 365;
 
@@ -68,6 +112,33 @@ export default function OverviewScreen() {
         >
           {passiveIncomePerYear.toFixed(2)} EUR
         </Text>
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.breakdownTitle}>
+          {t(language, "passiveIncomeSources")}
+        </Text>
+
+        <View style={styles.breakdownRow}>
+          <Text style={styles.breakdownLabel}>{t(language, "staking")}</Text>
+          <Text style={styles.breakdownValue}>
+            {stakingIncomePerYear.toFixed(2)} EUR
+          </Text>
+        </View>
+
+        <View style={styles.breakdownRow}>
+          <Text style={styles.breakdownLabel}>{t(language, "deposits")}</Text>
+          <Text style={styles.breakdownValue}>
+            {depositIncomePerYear.toFixed(2)} EUR
+          </Text>
+        </View>
+
+        <View style={styles.breakdownRow}>
+          <Text style={styles.breakdownLabel}>{t(language, "other")}</Text>
+          <Text style={styles.breakdownValue}>
+            {otherPassiveIncomePerYear.toFixed(2)} EUR
+          </Text>
+        </View>
       </View>
 
       <View style={styles.card}>
@@ -129,5 +200,30 @@ const styles = StyleSheet.create({
 
   dailyBalanceValue: {
     fontSize: 30,
+  },
+
+  breakdownTitle: {
+    color: "white",
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 14,
+  },
+
+  breakdownRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+
+  breakdownLabel: {
+    color: "#8b93a7",
+    fontSize: 15,
+  },
+
+  breakdownValue: {
+    color: "#3fb950",
+    fontSize: 15,
+    fontWeight: "600",
   },
 });

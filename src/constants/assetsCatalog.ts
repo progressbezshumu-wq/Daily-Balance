@@ -2,7 +2,7 @@
   id: string;
   symbol: string;
   name: string;
-  type: "crypto" | "stock" | "cash";
+  type: "crypto" | "stock" | "etf" | "staking" | "cash";
   price: number;
   currency: "EUR";
 };
@@ -32,6 +32,24 @@ export const assetsCatalog: AssetCatalogItem[] = [
     price: 0.92,
     currency: "EUR",
   },
+
+  {
+    id: "usdt-staking",
+    symbol: "USDT",
+    name: "Tether Staking",
+    type: "staking",
+    price: 0.92,
+    currency: "EUR",
+  },
+  {
+    id: "eth-staking",
+    symbol: "ETH",
+    name: "Ethereum Staking",
+    type: "staking",
+    price: 3200,
+    currency: "EUR",
+  },
+
   {
     id: "apple",
     symbol: "AAPL",
@@ -64,6 +82,32 @@ export const assetsCatalog: AssetCatalogItem[] = [
     price: 390,
     currency: "EUR",
   },
+
+  {
+    id: "vwce",
+    symbol: "VWCE",
+    name: "Vanguard FTSE All-World UCITS ETF",
+    type: "etf",
+    price: 121,
+    currency: "EUR",
+  },
+  {
+    id: "sxr8",
+    symbol: "SXR8",
+    name: "iShares Core S&P 500 UCITS ETF",
+    type: "etf",
+    price: 512,
+    currency: "EUR",
+  },
+  {
+    id: "eunl",
+    symbol: "EUNL",
+    name: "iShares Core MSCI World UCITS ETF",
+    type: "etf",
+    price: 91,
+    currency: "EUR",
+  },
+
   {
     id: "euro",
     symbol: "EUR",
