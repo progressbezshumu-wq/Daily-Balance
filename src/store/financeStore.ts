@@ -1,36 +1,60 @@
-﻿import { create } from "zustand";
-
-export type AssetType = "crypto" | "stock" | "cash";
+﻿import AsyncStorage from "@react-native-async-storage/async-storage";
+import { create } from "zustand";
+import { createJSONStorage, persist } from "zustand/middleware";
 
 export type Asset = {
   id: string;
-  assetId: string;
   symbol: string;
   name: string;
-  type: AssetType;
   quantity: number;
   buyPrice: number;
   currentPrice: number;
-  currency: "EUR";
   rate: number;
 };
 
-type FinanceState = {
+type NewAsset = Omit<Asset, "id">;
+
+type FinanceStore = {
   assets: Asset[];
-  addAsset: (asset: Asset) => void;
-  removeAsset: (id: string) => void;
+  addAsset: (asset: NewAsset) => void;
+  deleteAsset: (id: string) => void;
+  updateAsset: (id: string, updatedFields: Partial<NewAsset>) => void;
+  clearAssets: () => void;
 };
 
-export const useFinanceStore = create<FinanceState>((set) => ({
-  assets: [],
+export const useFinanceStore = create<FinanceStore>()(
+  persist(
+    (set) => ({
+      assets: [],
 
-  addAsset: (asset) =>
-    set((state) => ({
-      assets: [...state.assets, asset],
-    })),
+      addAsset: (asset) =>
+        set((state) => ({
+          assets: [
+            ...state.assets,
+            {
+              ...asset,
+              id: Math.random().toString(36).slice(2, 11),
+            },
+          ],
+        })),
 
-  removeAsset: (id) =>
-    set((state) => ({
-      assets: state.assets.filter((a) => a.id !== id),
-    })),
-}));
+      deleteAsset: (id) =>
+        set((state) => ({
+          assets: state.assets.filter((asset) => asset.id !== id),
+        })),
+
+      updateAsset: (id, updatedFields) =>
+        set((state) => ({
+          assets: state.assets.map((asset) =>
+            asset.id === id ? { ...asset, ...updatedFields } : asset
+          ),
+        })),
+
+      clearAssets: () => set({ assets: [] }),
+    }),
+    {
+      name: "daily-balance-finance-store",
+      storage: createJSONStorage(() => AsyncStorage),
+    }
+  )
+);

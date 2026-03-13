@@ -29,12 +29,12 @@ export default function TabsLayout() {
 
           if (route.name === "index") {
             iconName = focused ? "home" : "home-outline";
+          } else if (route.name === "portfolio") {
+            iconName = focused ? "pie-chart" : "pie-chart-outline";
           } else if (route.name === "assets") {
             iconName = focused ? "wallet" : "wallet-outline";
           } else if (route.name === "liabilities") {
             iconName = focused ? "card" : "card-outline";
-          } else if (route.name === "trends") {
-            iconName = focused ? "trending-up" : "trending-up-outline";
           } else if (route.name === "settings") {
             iconName = focused ? "settings" : "settings-outline";
           }
@@ -44,12 +44,12 @@ export default function TabsLayout() {
       })}
     >
       <Tabs.Screen name="index" options={{ title: t(language, "overview") }} />
+      <Tabs.Screen name="portfolio" options={{ title: t(language, "portfolio") }} />
       <Tabs.Screen name="assets" options={{ title: t(language, "assets") }} />
       <Tabs.Screen
         name="liabilities"
         options={{ title: t(language, "liabilities") }}
       />
-      <Tabs.Screen name="trends" options={{ title: t(language, "trends") }} />
       <Tabs.Screen name="settings" options={{ title: t(language, "settings") }} />
     </Tabs>
   );

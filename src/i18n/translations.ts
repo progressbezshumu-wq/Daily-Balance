@@ -1,6 +1,7 @@
 ﻿export const translations = {
   en: {
     overview: "Overview",
+    portfolio: "Portfolio",
     assets: "Assets",
     liabilities: "Liabilities",
     trends: "Trends",
@@ -25,10 +26,27 @@
     buyPrice: "Buy price",
     value: "Value",
     annualRate: "Annual rate",
+
+    netWorth: "Net worth",
+    passiveIncomePerYear: "Passive income / year",
+    liabilitiesPerYear: "Liabilities / year",
+    dailyBalance: "Daily balance",
+
+    addLiability: "Add liability",
+    noLiabilitiesYet: "No liabilities yet",
+    paymentAmount: "Payment amount",
+    paymentPeriod: "Payment period",
+    daily: "Daily",
+    monthly: "Monthly",
+    yearly: "Yearly",
+    yearlyPayment: "Yearly payment",
+    delete: "Delete",
+    edit: "Edit",
   },
 
   de: {
     overview: "Übersicht",
+    portfolio: "Portfolio",
     assets: "Vermögen",
     liabilities: "Verbindlichkeiten",
     trends: "Trends",
@@ -53,10 +71,27 @@
     buyPrice: "Kaufpreis",
     value: "Wert",
     annualRate: "Jahreszins",
+
+    netWorth: "Nettovermögen",
+    passiveIncomePerYear: "Passives Einkommen / Jahr",
+    liabilitiesPerYear: "Verbindlichkeiten / Jahr",
+    dailyBalance: "Tagesbilanz",
+
+    addLiability: "Verbindlichkeit hinzufügen",
+    noLiabilitiesYet: "Noch keine Verbindlichkeiten",
+    paymentAmount: "Zahlungsbetrag",
+    paymentPeriod: "Zahlungsperiode",
+    daily: "Täglich",
+    monthly: "Monatlich",
+    yearly: "Jährlich",
+    yearlyPayment: "Jährliche Zahlung",
+    delete: "Löschen",
+    edit: "Bearbeiten",
   },
 
   uk: {
     overview: "Огляд",
+    portfolio: "Портфель",
     assets: "Активи",
     liabilities: "Пасиви",
     trends: "Тренди",
@@ -81,5 +116,21 @@
     buyPrice: "Ціна купівлі",
     value: "Вартість",
     annualRate: "Річна ставка",
+
+    netWorth: "Чистий капітал",
+    passiveIncomePerYear: "Пасивний дохід / рік",
+    liabilitiesPerYear: "Пасиви / рік",
+    dailyBalance: "Денний баланс",
+
+    addLiability: "Додати пасив",
+    noLiabilitiesYet: "Пасивів поки немає",
+    paymentAmount: "Сума платежу",
+    paymentPeriod: "Період платежу",
+    daily: "Денний",
+    monthly: "Місячний",
+    yearly: "Річний",
+    yearlyPayment: "Річний платіж",
+    delete: "Видалити",
+    edit: "Редагувати",
   },
 } as const;

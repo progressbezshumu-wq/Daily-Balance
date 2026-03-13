@@ -7,6 +7,10 @@ import { useFinanceStore } from "../src/store/financeStore";
 import { useSettingsStore } from "../src/store/settingsStore";
 import { translations } from "../src/i18n/translations";
 
+function parseLocaleNumber(value: string): number {
+  return Number(value.replace(",", ".").trim());
+}
+
 export default function AddAssetScreen() {
   const addAsset = useFinanceStore((state) => state.addAsset);
   const language = useSettingsStore((state) => state.language) ?? "en";
@@ -27,17 +31,29 @@ export default function AddAssetScreen() {
   function handleAdd() {
     if (!selectedAsset || !quantity || !buyPrice) return;
 
+    const parsedQuantity = parseLocaleNumber(quantity);
+    const parsedBuyPrice = parseLocaleNumber(buyPrice);
+    const parsedRate = rate ? parseLocaleNumber(rate) : 0;
+
+    if (
+      Number.isNaN(parsedQuantity) ||
+      Number.isNaN(parsedBuyPrice) ||
+      Number.isNaN(parsedRate)
+    ) {
+      return;
+    }
+
     addAsset({
       id: Date.now().toString(),
       assetId: selectedAsset.id,
       symbol: selectedAsset.symbol,
       name: selectedAsset.name,
       type: selectedAsset.type,
-      quantity: Number(quantity),
-      buyPrice: Number(buyPrice),
+      quantity: parsedQuantity,
+      buyPrice: parsedBuyPrice,
       currentPrice: selectedAsset.price,
       currency: "EUR",
-      rate: Number(rate) || 0,
+      rate: parsedRate,
     });
 
     router.back();
@@ -45,14 +61,17 @@ export default function AddAssetScreen() {
 
   const currentPrice = selectedAsset?.price ?? 0;
 
+  const parsedQuantity = parseLocaleNumber(quantity);
+  const parsedBuyPrice = parseLocaleNumber(buyPrice);
+
   const currentValue =
-    selectedAsset && quantity
-      ? Number(quantity) * currentPrice
+    selectedAsset && !Number.isNaN(parsedQuantity)
+      ? parsedQuantity * currentPrice
       : 0;
 
   const buyValue =
-    quantity && buyPrice
-      ? Number(quantity) * Number(buyPrice)
+    !Number.isNaN(parsedQuantity) && !Number.isNaN(parsedBuyPrice)
+      ? parsedQuantity * parsedBuyPrice
       : 0;
 
   const profit = currentValue - buyValue;
@@ -98,7 +117,7 @@ export default function AddAssetScreen() {
             style={styles.input}
             placeholder={t.quantity}
             placeholderTextColor="#888"
-            keyboardType="numeric"
+            keyboardType="decimal-pad"
             value={quantity}
             onChangeText={setQuantity}
           />
@@ -107,7 +126,7 @@ export default function AddAssetScreen() {
             style={styles.input}
             placeholder={t.buyPricePerUnit}
             placeholderTextColor="#888"
-            keyboardType="numeric"
+            keyboardType="decimal-pad"
             value={buyPrice}
             onChangeText={setBuyPrice}
           />
@@ -116,7 +135,7 @@ export default function AddAssetScreen() {
             style={styles.input}
             placeholder={t.annualRateOptional}
             placeholderTextColor="#888"
-            keyboardType="numeric"
+            keyboardType="decimal-pad"
             value={rate}
             onChangeText={setRate}
           />
