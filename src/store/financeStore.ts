@@ -1,4 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+﻿import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
@@ -10,6 +10,8 @@ export type AssetCategory =
   | "deposit"
   | "cash";
 
+export type Currency = "EUR" | "USD" | "UAH";
+
 export type Asset = {
   id: string;
   symbol: string;
@@ -19,6 +21,7 @@ export type Asset = {
   currentPrice: number;
   rate: number;
   category: AssetCategory;
+  currency: Currency;
 };
 
 type NewAsset = Omit<Asset, "id">;
@@ -54,6 +57,7 @@ export const useFinanceStore = create<FinanceStore>()(
             {
               ...asset,
               category: asset.category ?? "crypto",
+              currency: asset.currency ?? "EUR",
               id: Math.random().toString(36).slice(2, 11),
             },
           ],

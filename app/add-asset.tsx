@@ -1,4 +1,5 @@
-ï»¿import { View, Text, TextInput, StyleSheet, Pressable, FlatList } from "react-native";
+import { View, Text, TextInput, StyleSheet, Pressable, FlatList, ScrollView } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useEffect, useMemo, useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 
@@ -8,16 +9,26 @@ import { useSettingsStore } from "../src/store/settingsStore";
 import { translations } from "../src/i18n/translations";
 
 const assetTypes = [
-  { id: "stock", label: "Stock" },
-  { id: "etf", label: "ETF" },
-  { id: "crypto", label: "Crypto" },
-  { id: "staking", label: "Staking" },
-  { id: "deposit", label: "Deposit" },
-  { id: "cash", label: "Cash" },
-];
+  { id: "stock" },
+  { id: "etf" },
+  { id: "crypto" },
+  { id: "staking" },
+  { id: "deposit" },
+  { id: "cash" },
+] as const;
 
 function parseLocaleNumber(value: string): number {
   return Number(value.replace(",", ".").trim());
+}
+
+function getAssetTypeLabel(type: string, t: any) {
+  if (type === "stock") return t.stock;
+  if (type === "etf") return t.etf;
+  if (type === "crypto") return t.crypto;
+  if (type === "staking") return t.staking;
+  if (type === "deposit") return t.deposit;
+  if (type === "cash") return t.cash;
+  return type;
 }
 
 export default function AddAssetScreen() {
@@ -186,136 +197,93 @@ export default function AddAssetScreen() {
     category === "staking";
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>
-        {isEditMode ? t.edit : t.addAsset}
-      </Text>
+    <SafeAreaView style={styles.safe}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        alwaysBounceVertical
+        bounces
+      >
+        <Text style={styles.title}>
+          {isEditMode ? t.edit : t.addAsset}
+        </Text>
 
-      <Text style={styles.section}>Asset type</Text>
+        <Text style={styles.section}>{t.assetType}</Text>
 
-      <View style={styles.typeRow}>
-        {assetTypes.map((type) => (
-          <Pressable
-            key={type.id}
-            style={[
-              styles.typeButton,
-              category === type.id && styles.typeActive,
-            ]}
-            onPress={() => {
-              setCategory(type.id);
-              if (!isEditMode) {
-                setSelectedAsset(null);
-                setSearch("");
-                setCustomName("");
-                setQuantity("");
-                setBuyPrice("");
-                setRate("");
-              }
-            }}
-          >
-            <Text style={styles.typeText}>{type.label}</Text>
-          </Pressable>
-        ))}
-      </View>
+        <View style={styles.typeRow}>
+          {assetTypes.map((type) => (
+            <Pressable
+              key={type.id}
+              style={[
+                styles.typeButton,
+                category === type.id && styles.typeActive,
+              ]}
+              onPress={() => {
+                setCategory(type.id);
+                if (!isEditMode) {
+                  setSelectedAsset(null);
+                  setSearch("");
+                  setCustomName("");
+                  setQuantity("");
+                  setBuyPrice("");
+                  setRate("");
+                }
+              }}
+            >
+              <Text style={styles.typeText}>{getAssetTypeLabel(type.id, t)}</Text>
+            </Pressable>
+          ))}
+        </View>
 
-      {!selectedAsset && !isEditMode && !isManualType && (
-        <>
-          <TextInput
-            style={styles.input}
-            placeholder={t.searchAsset + " (BTC, Apple...)"}
-            placeholderTextColor="#888"
-            value={search}
-            onChangeText={setSearch}
-          />
-
-          <FlatList
-            data={filteredAssets}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <Pressable
-                style={styles.assetItem}
-                onPress={() => setSelectedAsset(item)}
-              >
-                <Text style={styles.assetText}>
-                  {item.symbol} â€” {item.name}
-                </Text>
-              </Pressable>
-            )}
-          />
-        </>
-      )}
-
-      {isDepositType && (
-        <>
-          <TextInput
-            style={styles.input}
-            placeholder={t.depositName}
-            placeholderTextColor="#888"
-            value={customName}
-            onChangeText={setCustomName}
-          />
-
-          <TextInput
-            style={styles.input}
-            placeholder={t.principalAmount}
-            placeholderTextColor="#888"
-            keyboardType="decimal-pad"
-            value={quantity}
-            onChangeText={setQuantity}
-          />
-
-          <TextInput
-            style={styles.input}
-            placeholder={t.annualRateOptional}
-            placeholderTextColor="#888"
-            keyboardType="decimal-pad"
-            value={rate}
-            onChangeText={setRate}
-          />
-
-          <Text style={styles.info}>
-            {t.currentValue}: {currentValue.toFixed(2)} EUR
-          </Text>
-
-          <Text style={styles.info}>
-            {t.passiveIncomePerYear}: {(currentValue * ((rate ? parseLocaleNumber(rate) : 0) / 100)).toFixed(2)} EUR
-          </Text>
-
-          <Pressable style={styles.button} onPress={handleSave}>
-            <Text style={styles.buttonText}>
-              {isEditMode ? t.edit : t.addAsset}
-            </Text>
-          </Pressable>
-        </>
-      )}
-
-      {selectedAsset && !isDepositType && (
-        <>
-          <Text style={styles.selected}>
-            {selectedAsset.symbol} â€” {selectedAsset.name}
-          </Text>
-
-          <TextInput
-            style={styles.input}
-            placeholder={isCashType ? t.principalAmount : t.quantity}
-            placeholderTextColor="#888"
-            keyboardType="decimal-pad"
-            value={quantity}
-            onChangeText={setQuantity}
-          />
-
-          {!isCashType && (
+        {!selectedAsset && !isEditMode && !isManualType && (
+          <>
             <TextInput
               style={styles.input}
-              placeholder={t.buyPricePerUnit}
+              placeholder={t.searchAsset + " (BTC, Apple...)"}
+              placeholderTextColor="#888"
+              value={search}
+              onChangeText={setSearch}
+            />
+
+            <FlatList
+              data={filteredAssets}
+              keyExtractor={(item) => item.id}
+              scrollEnabled={false}
+              renderItem={({ item }) => (
+                <Pressable
+                  style={styles.assetItem}
+                  onPress={() => setSelectedAsset(item)}
+                >
+                  <Text style={styles.assetText}>
+                    {item.symbol} — {item.name}
+                  </Text>
+                </Pressable>
+              )}
+            />
+          </>
+        )}
+
+        {isDepositType && (
+          <>
+            <TextInput
+              style={styles.input}
+              placeholder={t.depositName}
+              placeholderTextColor="#888"
+              value={customName}
+              onChangeText={setCustomName}
+            />
+
+            <TextInput
+              style={styles.input}
+              placeholder={t.principalAmount}
               placeholderTextColor="#888"
               keyboardType="decimal-pad"
-              value={buyPrice}
-              onChangeText={setBuyPrice}
+              value={quantity}
+              onChangeText={setQuantity}
             />
-          )}
 
-          {showRateField && (
             <TextInput
               style={styles.input}
               placeholder={t.annualRateOptional}
@@ -324,38 +292,100 @@ export default function AddAssetScreen() {
               value={rate}
               onChangeText={setRate}
             />
-          )}
 
-          <Text style={styles.info}>
-            {t.currentPrice}: {currentPrice} EUR
-          </Text>
-
-          <Text style={styles.info}>
-            {t.currentValue}: {currentValue.toFixed(2)} EUR
-          </Text>
-
-          {showProfitBlock && (
             <Text style={styles.info}>
-              {t.profitLoss}: {profit.toFixed(2)} EUR
+              {t.currentValue}: {currentValue.toFixed(2)} EUR
             </Text>
-          )}
 
-          <Pressable style={styles.button} onPress={handleSave}>
-            <Text style={styles.buttonText}>
-              {isEditMode ? t.edit : t.addAsset}
+            <Text style={styles.info}>
+              {t.passiveIncomePerYear}: {(currentValue * ((rate ? parseLocaleNumber(rate) : 0) / 100)).toFixed(2)} EUR
             </Text>
-          </Pressable>
-        </>
-      )}
-    </View>
+
+            <Pressable style={styles.button} onPress={handleSave}>
+              <Text style={styles.buttonText}>
+                {isEditMode ? t.edit : t.addAsset}
+              </Text>
+            </Pressable>
+          </>
+        )}
+
+        {selectedAsset && !isDepositType && (
+          <>
+            <Text style={styles.selected}>
+              {selectedAsset.symbol} — {selectedAsset.name}
+            </Text>
+
+            <TextInput
+              style={styles.input}
+              placeholder={isCashType ? t.principalAmount : t.quantity}
+              placeholderTextColor="#888"
+              keyboardType="decimal-pad"
+              value={quantity}
+              onChangeText={setQuantity}
+            />
+
+            {!isCashType && (
+              <TextInput
+                style={styles.input}
+                placeholder={t.buyPricePerUnit}
+                placeholderTextColor="#888"
+                keyboardType="decimal-pad"
+                value={buyPrice}
+                onChangeText={setBuyPrice}
+              />
+            )}
+
+            {showRateField && (
+              <TextInput
+                style={styles.input}
+                placeholder={t.annualRateOptional}
+                placeholderTextColor="#888"
+                keyboardType="decimal-pad"
+                value={rate}
+                onChangeText={setRate}
+              />
+            )}
+
+            <Text style={styles.info}>
+              {t.currentPrice}: {currentPrice} EUR
+            </Text>
+
+            <Text style={styles.info}>
+              {t.currentValue}: {currentValue.toFixed(2)} EUR
+            </Text>
+
+            {showProfitBlock && (
+              <Text style={styles.info}>
+                {t.profitLoss}: {profit.toFixed(2)} EUR
+              </Text>
+            )}
+
+            <Pressable style={styles.button} onPress={handleSave}>
+              <Text style={styles.buttonText}>
+                {isEditMode ? t.edit : t.addAsset}
+              </Text>
+            </Pressable>
+          </>
+        )}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safe: {
+    flex: 1,
+    backgroundColor: "#0f1115",
+  },
+
   container: {
     flex: 1,
-    padding: 24,
     backgroundColor: "#0f1115",
+  },
+
+  content: {
+    padding: 24,
+    paddingBottom: 40,
   },
 
   title: {

@@ -1,4 +1,4 @@
-export const translations = {
+﻿export const translations = {
   en: {
     overview: "Overview",
     portfolio: "Portfolio",
@@ -17,6 +17,7 @@ export const translations = {
 
     assetName: "Asset name",
     assetValue: "Asset value",
+    assetType: "Asset type",
 
     searchAsset: "Search asset",
     quantity: "Quantity",
@@ -47,7 +48,12 @@ export const translations = {
     yourFinancialBase: "Your financial base",
 
     passiveIncomeSources: "Passive income sources",
+    stock: "Stocks",
+    etf: "ETF",
+    crypto: "Crypto",
     staking: "Staking",
+    deposit: "Deposit",
+    cash: "Cash",
     other: "Other",
 
     addLiability: "Add liability",
@@ -71,6 +77,16 @@ export const translations = {
     startDate: "Start date",
     reviewDate: "Review date",
     notes: "Notes",
+
+    help: "Help",
+    ok: "OK",
+    cashHelpTitle: "Cash",
+    cashHelpText: "This is your available money. Add your salary or any other income here. Later you can use this balance to buy assets such as crypto, stocks, ETFs, staking or deposits.",
+    refreshPrice: "Refresh price",
+    updating: "Updating...",
+    livePrice: "Live price",
+    lastUpdated: "Last updated",
+    livePriceUnavailable: "Live price is unavailable for this asset type right now.",
   },
 
   de: {
@@ -91,6 +107,7 @@ export const translations = {
 
     assetName: "Name des Verm\u00f6genswerts",
     assetValue: "Wert des Verm\u00f6genswerts",
+    assetType: "Asset-Typ",
 
     searchAsset: "Asset suchen",
     quantity: "Menge",
@@ -121,7 +138,12 @@ export const translations = {
     yourFinancialBase: "Deine finanzielle Basis",
 
     passiveIncomeSources: "Quellen des passiven Einkommens",
+    stock: "Aktien",
+    etf: "ETF",
+    crypto: "Krypto",
     staking: "Staking",
+    deposit: "Einlage",
+    cash: "Bargeld",
     other: "Sonstiges",
 
     addLiability: "Verbindlichkeit hinzuf\u00fcgen",
@@ -145,6 +167,16 @@ export const translations = {
     startDate: "Startdatum",
     reviewDate: "\u00dcberpr\u00fcfungsdatum",
     notes: "Notizen",
+
+    help: "Hilfe",
+    ok: "OK",
+    cashHelpTitle: "Bargeld",
+    cashHelpText: "Das ist dein verf\u00fcgbares Geld. F\u00fcge hier dein Gehalt oder andere Einnahmen hinzu. Sp\u00e4ter kannst du dieses Guthaben nutzen, um Verm\u00f6genswerte wie Krypto, Aktien, ETFs, Staking oder Einlagen zu kaufen.",
+    refreshPrice: "Preis aktualisieren",
+    updating: "Wird aktualisiert...",
+    livePrice: "Live-Preis",
+    lastUpdated: "Zuletzt aktualisiert",
+    livePriceUnavailable: "Live-Preis ist f\u00fcr diesen Asset-Typ aktuell nicht verf\u00fcgbar.",
   },
 
   uk: {
@@ -165,11 +197,12 @@ export const translations = {
 
     assetName: "\u041d\u0430\u0437\u0432\u0430 \u0430\u043a\u0442\u0438\u0432\u0443",
     assetValue: "\u0412\u0430\u0440\u0442\u0456\u0441\u0442\u044c \u0430\u043a\u0442\u0438\u0432\u0443",
+    assetType: "\u0422\u0438\u043f \u0430\u043a\u0442\u0438\u0432\u0443",
 
     searchAsset: "\u041f\u043e\u0448\u0443\u043a \u0430\u043a\u0442\u0438\u0432\u0443",
     quantity: "\u041a\u0456\u043b\u044c\u043a\u0456\u0441\u0442\u044c",
     buyPricePerUnit: "\u0426\u0456\u043d\u0430 \u043a\u0443\u043f\u0456\u0432\u043b\u0456 \u0437\u0430 \u043e\u0434\u0438\u043d\u0438\u0446\u044e",
-    annualRateOptional: "\u0420\u0456\u0447\u043d\u0430 \u0441\u0442\u0430\u0432\u043a\u0430 % (\u043d\u0435\u043e\u0431\u043e\u0432\u2019\u044f\u0437\u043a\u043e\u0432\u043e)",
+    annualRateOptional: "\u0420\u0456\u0447\u043d\u0430 \u0441\u0442\u0430\u0432\u043a\u0430 % (\u043d\u0435\u043e\u0431\u043e\u0432'\u044f\u0437\u043a\u043e\u0432\u043e)",
 
     currentPrice: "\u041f\u043e\u0442\u043e\u0447\u043d\u0430 \u0446\u0456\u043d\u0430",
     currentValue: "\u041f\u043e\u0442\u043e\u0447\u043d\u0430 \u0432\u0430\u0440\u0442\u0456\u0441\u0442\u044c",
@@ -195,7 +228,12 @@ export const translations = {
     yourFinancialBase: "\u0422\u0432\u043e\u044f \u0444\u0456\u043d\u0430\u043d\u0441\u043e\u0432\u0430 \u0431\u0430\u0437\u0430",
 
     passiveIncomeSources: "\u0414\u0436\u0435\u0440\u0435\u043b\u0430 \u043f\u0430\u0441\u0438\u0432\u043d\u043e\u0433\u043e \u0434\u043e\u0445\u043e\u0434\u0443",
+    stock: "\u0410\u043a\u0446\u0456\u0457",
+    etf: "ETF",
+    crypto: "\u041a\u0440\u0438\u043f\u0442\u043e",
     staking: "\u0421\u0442\u0435\u0439\u043a\u0456\u043d\u0433",
+    deposit: "\u0414\u0435\u043f\u043e\u0437\u0438\u0442",
+    cash: "\u0413\u043e\u0442\u0456\u0432\u043a\u0430",
     other: "\u0406\u043d\u0448\u0435",
 
     addLiability: "\u0414\u043e\u0434\u0430\u0442\u0438 \u043f\u0430\u0441\u0438\u0432",
@@ -219,5 +257,16 @@ export const translations = {
     startDate: "\u0414\u0430\u0442\u0430 \u0432\u043d\u0435\u0441\u043a\u0443",
     reviewDate: "\u0414\u0430\u0442\u0430 \u043f\u0435\u0440\u0435\u0432\u0456\u0440\u043a\u0438",
     notes: "\u041d\u043e\u0442\u0430\u0442\u043a\u0438",
+
+    help: "\u0414\u043e\u0432\u0456\u0434\u043a\u0430",
+    ok: "OK",
+    cashHelpTitle: "\u0413\u043e\u0442\u0456\u0432\u043a\u0430",
+    cashHelpText: "\u0426\u0435 \u0442\u0432\u043e\u0457 \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0456 \u0433\u0440\u043e\u0448\u0456. \u0414\u043e\u0434\u0430\u0432\u0430\u0439 \u0441\u044e\u0434\u0438 \u0437\u0430\u0440\u043f\u043b\u0430\u0442\u0443 \u0430\u0431\u043e \u0456\u043d\u0448\u0456 \u043d\u0430\u0434\u0445\u043e\u0434\u0436\u0435\u043d\u043d\u044f. \u041f\u0456\u0437\u043d\u0456\u0448\u0435 \u0442\u0438 \u043c\u043e\u0436\u0435\u0448 \u0432\u0438\u043a\u043e\u0440\u0438\u0441\u0442\u0430\u0442\u0438 \u0446\u0435\u0439 \u0431\u0430\u043b\u0430\u043d\u0441 \u0434\u043b\u044f \u043a\u0443\u043f\u0456\u0432\u043b\u0456 \u0430\u043a\u0442\u0438\u0432\u0456\u0432, \u043d\u0430\u043f\u0440\u0438\u043a\u043b\u0430\u0434 \u043a\u0440\u0438\u043f\u0442\u043e, \u0430\u043a\u0446\u0456\u0439, ETF, \u0441\u0442\u0435\u0439\u043a\u0456\u043d\u0433\u0443 \u0430\u0431\u043e \u0434\u0435\u043f\u043e\u0437\u0438\u0442\u0456\u0432.",
+    refreshPrice: "\u041e\u043d\u043e\u0432\u0438\u0442\u0438 \u0446\u0456\u043d\u0443",
+    updating: "\u041e\u043d\u043e\u0432\u043b\u0435\u043d\u043d\u044f...",
+    livePrice: "\u0416\u0438\u0432\u0430 \u0446\u0456\u043d\u0430",
+    lastUpdated: "\u041e\u0441\u0442\u0430\u043d\u043d\u0454 \u043e\u043d\u043e\u0432\u043b\u0435\u043d\u043d\u044f",
+    livePriceUnavailable: "\u0414\u043b\u044f \u0446\u044c\u043e\u0433\u043e \u0442\u0438\u043f\u0443 \u0430\u043a\u0442\u0438\u0432\u0443 live-\u0446\u0456\u043d\u0430 \u043f\u043e\u043a\u0438 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430.",
   },
 } as const;
+
