@@ -29,6 +29,7 @@ export const translations = {
 
     currentPrice: "Current price",
     currentValue: "Current value",
+    portfolioAllocation: "Portfolio allocation",
 
     profitLoss: "Profit / Loss",
 
@@ -122,6 +123,7 @@ export const translations = {
 
     currentPrice: "Aktueller Preis",
     currentValue: "Aktueller Wert",
+    portfolioAllocation: "Portfolio-Allokation",
 
     profitLoss: "Gewinn / Verlust",
 
@@ -215,6 +217,7 @@ export const translations = {
 
     currentPrice: "\u041f\u043e\u0442\u043e\u0447\u043d\u0430 \u0446\u0456\u043d\u0430",
     currentValue: "\u041f\u043e\u0442\u043e\u0447\u043d\u0430 \u0432\u0430\u0440\u0442\u0456\u0441\u0442\u044c",
+    portfolioAllocation: "\u0421\u0442\u0440\u0443\u043a\u0442\u0443\u0440\u0430 \u043f\u043e\u0440\u0442\u0444\u0435\u043b\u044f",
 
     profitLoss: "\u041f\u0440\u0438\u0431\u0443\u0442\u043e\u043a / \u0437\u0431\u0438\u0442\u043e\u043a",
 
@@ -278,4 +281,3 @@ export const translations = {
     livePriceUnavailable: "\u0414\u043b\u044f \u0446\u044c\u043e\u0433\u043e \u0442\u0438\u043f\u0443 \u0430\u043a\u0442\u0438\u0432\u0443 live-\u0446\u0456\u043d\u0430 \u043f\u043e\u043a\u0438 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430.",
   },
 } as const;
-
