@@ -1,4 +1,4 @@
-﻿import AsyncStorage from "@react-native-async-storage/async-storage";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
@@ -24,6 +24,12 @@ export type Asset = {
 type NewAsset = Omit<Asset, "id">;
 
 type FinanceStore = {
+  activeIncomePerYear: number;
+  activeExpensesPerYear: number;
+
+  setActiveIncomePerYear: (value: number) => void;
+  setActiveExpensesPerYear: (value: number) => void;
+
   assets: Asset[];
 
   addAsset: (asset: NewAsset) => void;
@@ -37,6 +43,9 @@ export const useFinanceStore = create<FinanceStore>()(
   persist(
     (set) => ({
       assets: [],
+
+      activeIncomePerYear: 0,
+      activeExpensesPerYear: 0,
 
       addAsset: (asset) =>
         set((state) => ({
@@ -63,6 +72,12 @@ export const useFinanceStore = create<FinanceStore>()(
         })),
 
       clearAssets: () => set({ assets: [] }),
+
+      setActiveIncomePerYear: (value) =>
+        set(() => ({ activeIncomePerYear: value })),
+
+      setActiveExpensesPerYear: (value) =>
+        set(() => ({ activeExpensesPerYear: value })),
     }),
     {
       name: "daily-balance-finance-store",
