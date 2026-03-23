@@ -1,4 +1,5 @@
-﻿import { View, Text, StyleSheet } from "react-native";
+﻿import { View, Text, StyleSheet, ScrollView } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useFinanceStore } from "../../src/store/financeStore";
 import { useLiabilityStore } from "../../src/store/liabilityStore";
@@ -92,79 +93,95 @@ export default function OverviewScreen() {
   const dailyBalance = (passiveIncomePerYear - liabilitiesPerYear) / 365;
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>{t(language, "overview")}</Text>
+    <SafeAreaView style={styles.safe}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        alwaysBounceVertical
+        bounces
+      >
+        <View style={styles.container}>
+          <Text style={styles.title}>{t(language, "overview")}</Text>
 
-      <View style={styles.card}>
-        <Text style={styles.label}>{t(language, "netWorth")}</Text>
-        <Text style={[styles.value, { color: getNetWorthColor(netWorth) }]}>
-          {netWorth.toFixed(2)} EUR
-        </Text>
-      </View>
+          <View style={styles.card}>
+            <Text style={styles.label}>{t(language, "netWorth")}</Text>
+            <Text style={[styles.value, { color: getNetWorthColor(netWorth) }]}>
+              {netWorth.toFixed(2)} EUR
+            </Text>
+          </View>
 
-      <View style={styles.card}>
-        <Text style={styles.label}>{t(language, "passiveIncomePerYear")}</Text>
-        <Text
-          style={[
-            styles.value,
-            { color: getPassiveIncomeColor(passiveIncomePerYear) },
-          ]}
-        >
-          {passiveIncomePerYear.toFixed(2)} EUR
-        </Text>
-      </View>
+          <View style={styles.card}>
+            <Text style={styles.label}>{t(language, "passiveIncomePerYear")}</Text>
+            <Text
+              style={[
+                styles.value,
+                { color: getPassiveIncomeColor(passiveIncomePerYear) },
+              ]}
+            >
+              {passiveIncomePerYear.toFixed(2)} EUR
+            </Text>
+          </View>
 
-      <View style={styles.card}>
-        <Text style={styles.breakdownTitle}>
-          {t(language, "passiveIncomeSources")}
-        </Text>
+          <View style={styles.card}>
+            <Text style={styles.breakdownTitle}>
+              {t(language, "passiveIncomeSources")}
+            </Text>
 
-        <View style={styles.breakdownRow}>
-          <Text style={styles.breakdownLabel}>{t(language, "staking")}</Text>
-          <Text style={styles.breakdownValue}>
-            {stakingIncomePerYear.toFixed(2)} EUR
-          </Text>
+            <View style={styles.breakdownRow}>
+              <Text style={styles.breakdownLabel}>{t(language, "staking")}</Text>
+              <Text style={styles.breakdownValue}>
+                {stakingIncomePerYear.toFixed(2)} EUR
+              </Text>
+            </View>
+
+            <View style={styles.breakdownRow}>
+              <Text style={styles.breakdownLabel}>{t(language, "deposits")}</Text>
+              <Text style={styles.breakdownValue}>
+                {depositIncomePerYear.toFixed(2)} EUR
+              </Text>
+            </View>
+
+            <View style={styles.breakdownRow}>
+              <Text style={styles.breakdownLabel}>{t(language, "other")}</Text>
+              <Text style={styles.breakdownValue}>
+                {otherPassiveIncomePerYear.toFixed(2)} EUR
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.label}>{t(language, "liabilitiesPerYear")}</Text>
+            <Text style={[styles.value, { color: "#ff4d4f" }]}>
+              {liabilitiesPerYear.toFixed(2)} EUR
+            </Text>
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.label}>{t(language, "dailyBalance")}</Text>
+            <Text
+              style={[
+                styles.value,
+                styles.dailyBalanceValue,
+                { color: getDailyBalanceColor(dailyBalance) },
+              ]}
+            >
+              {dailyBalance.toFixed(2)} EUR
+            </Text>
+          </View>
         </View>
-
-        <View style={styles.breakdownRow}>
-          <Text style={styles.breakdownLabel}>{t(language, "deposits")}</Text>
-          <Text style={styles.breakdownValue}>
-            {depositIncomePerYear.toFixed(2)} EUR
-          </Text>
-        </View>
-
-        <View style={styles.breakdownRow}>
-          <Text style={styles.breakdownLabel}>{t(language, "other")}</Text>
-          <Text style={styles.breakdownValue}>
-            {otherPassiveIncomePerYear.toFixed(2)} EUR
-          </Text>
-        </View>
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.label}>{t(language, "liabilitiesPerYear")}</Text>
-        <Text style={[styles.value, { color: "#ff4d4f" }]}>
-          {liabilitiesPerYear.toFixed(2)} EUR
-        </Text>
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.label}>{t(language, "dailyBalance")}</Text>
-        <Text
-          style={[
-            styles.value,
-            styles.dailyBalanceValue,
-            { color: getDailyBalanceColor(dailyBalance) },
-          ]}
-        >
-          {dailyBalance.toFixed(2)} EUR
-        </Text>
-      </View>
-    </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safe: {
+    flex: 1,
+    backgroundColor: "#0f1218",
+  },
+  scrollContent: {
+    paddingBottom: 24,
+  },
   container: {
     flex: 1,
     backgroundColor: "#0f1218",

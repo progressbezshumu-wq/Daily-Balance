@@ -1,4 +1,5 @@
 ﻿import { View, Text, StyleSheet, Pressable, ScrollView, Image } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
@@ -42,7 +43,8 @@ export default function AssetsScreen() {
   const t = translations[language];
 
   const total = assets.reduce(
-    (sum, asset) => sum + toSafeNumber(asset.quantity) * toSafeNumber(asset.currentPrice),
+    (sum, asset) =>
+      sum + toSafeNumber(asset.quantity) * toSafeNumber(asset.currentPrice),
     0
   );
 
@@ -65,171 +67,183 @@ export default function AssetsScreen() {
     .filter((group) => group.items.length > 0);
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>{t.assets}</Text>
+    <SafeAreaView style={styles.safe}>
+      <View style={styles.container}>
+        <Text style={styles.title}>{t.assets}</Text>
 
-      <Text style={styles.total}>
-        {t.totalAssets}: {total.toFixed(2)} EUR
-      </Text>
+        <Text style={styles.total}>
+          {t.totalAssets}: {total.toFixed(2)} EUR
+        </Text>
 
-      {assets.length === 0 ? (
-        <Text style={styles.empty}>{t.noAssetsYet}</Text>
-      ) : (
-        <ScrollView contentContainerStyle={styles.list}>
-          {groupedAssets.map((group) => (
-            <View key={group.category} style={styles.groupWrap}>
-              <Text style={styles.groupTitle}>{group.title}</Text>
+        {assets.length === 0 ? (
+          <Text style={styles.empty}>{t.noAssetsYet}</Text>
+        ) : (
+          <ScrollView
+            contentContainerStyle={styles.list}
+            showsVerticalScrollIndicator={false}
+            alwaysBounceVertical
+            bounces
+          >
+            {groupedAssets.map((group) => (
+              <View key={group.category} style={styles.groupWrap}>
+                <Text style={styles.groupTitle}>{group.title}</Text>
 
-              {group.items.map((asset) => {
-                const quantity = toSafeNumber(asset.quantity);
-                const buyPrice = toSafeNumber(asset.buyPrice);
-                const currentPrice = toSafeNumber(asset.currentPrice);
-                const rate = toSafeNumber(asset.rate);
+                {group.items.map((asset) => {
+                  const quantity = toSafeNumber(asset.quantity);
+                  const buyPrice = toSafeNumber(asset.buyPrice);
+                  const currentPrice = toSafeNumber(asset.currentPrice);
+                  const rate = toSafeNumber(asset.rate);
 
-                const currentValue = quantity * currentPrice;
-                const buyValue = quantity * buyPrice;
-                const profit = currentValue - buyValue;
-                const profitPercent =
-                  buyValue !== 0 ? (profit / buyValue) * 100 : 0;
-                const passiveIncomePerYear = currentValue * (rate / 100);
+                  const currentValue = quantity * currentPrice;
+                  const buyValue = quantity * buyPrice;
+                  const profit = currentValue - buyValue;
+                  const profitPercent =
+                    buyValue !== 0 ? (profit / buyValue) * 100 : 0;
+                  const passiveIncomePerYear = currentValue * (rate / 100);
 
-                const profitColor = profit >= 0 ? "#3fb950" : "#ff4d4f";
-                const logoSource =
-                  assetLogos[asset.symbol as keyof typeof assetLogos] ?? null;
+                  const profitColor = profit >= 0 ? "#3fb950" : "#ff4d4f";
+                  const logoSource =
+                    assetLogos[asset.symbol as keyof typeof assetLogos] ?? null;
 
-                return (
-                  <View key={asset.id} style={styles.card}>
-                    <View style={styles.headerRow}>
-                      <View style={styles.logoWrap}>
-                        {logoSource ? (
-                          <Image source={logoSource} style={styles.logo} />
-                        ) : (
-                          <MaterialCommunityIcons
-                            name={getCategoryIconName(asset.category)}
-                            size={22}
-                            color="white"
-                          />
-                        )}
+                  return (
+                    <View key={asset.id} style={styles.card}>
+                      <View style={styles.headerRow}>
+                        <View style={styles.logoWrap}>
+                          {logoSource ? (
+                            <Image source={logoSource} style={styles.logo} />
+                          ) : (
+                            <MaterialCommunityIcons
+                              name={getCategoryIconName(asset.category)}
+                              size={22}
+                              color="white"
+                            />
+                          )}
+                        </View>
+
+                        <View style={styles.headerTextWrap}>
+                          <Text style={styles.cardTitle}>
+                            {asset.symbol} — {asset.name}
+                          </Text>
+                        </View>
                       </View>
 
-                      <View style={styles.headerTextWrap}>
-                        <Text style={styles.cardTitle}>
-                          {asset.symbol} — {asset.name}
-                        </Text>
-                      </View>
-                    </View>
+                      {(asset.category === "stock" ||
+                        asset.category === "etf" ||
+                        asset.category === "crypto") && (
+                        <>
+                          <Text style={styles.cardLine}>
+                            {t.quantity}: {quantity}
+                          </Text>
 
-                    {(asset.category === "stock" ||
-                      asset.category === "etf" ||
-                      asset.category === "crypto") && (
-                      <>
-                        <Text style={styles.cardLine}>
-                          {t.quantity}: {quantity}
-                        </Text>
+                          <Text style={styles.cardLine}>
+                            {t.buyPrice}: {buyPrice.toFixed(2)} EUR
+                          </Text>
 
-                        <Text style={styles.cardLine}>
-                          {t.buyPrice}: {buyPrice.toFixed(2)} EUR
-                        </Text>
+                          <Text style={styles.cardLine}>
+                            {t.currentPrice}: {currentPrice.toFixed(2)} EUR
+                          </Text>
 
-                        <Text style={styles.cardLine}>
-                          {t.currentPrice}: {currentPrice.toFixed(2)} EUR
-                        </Text>
+                          <Text style={styles.cardLine}>
+                            {t.value}: {currentValue.toFixed(2)} EUR
+                          </Text>
 
-                        <Text style={styles.cardLine}>
-                          {t.value}: {currentValue.toFixed(2)} EUR
-                        </Text>
+                          <Text style={[styles.cardLine, { color: profitColor }]}>
+                            {t.profitLoss}: {profit.toFixed(2)} EUR ({profitPercent.toFixed(2)}%)
+                          </Text>
+                        </>
+                      )}
 
-                        <Text style={[styles.cardLine, { color: profitColor }]}>
-                          {t.profitLoss}: {profit.toFixed(2)} EUR ({profitPercent.toFixed(2)}%)
-                        </Text>
-                      </>
-                    )}
+                      {asset.category === "staking" && (
+                        <>
+                          <Text style={styles.cardLine}>
+                            {t.quantity}: {quantity}
+                          </Text>
 
-                    {asset.category === "staking" && (
-                      <>
-                        <Text style={styles.cardLine}>
-                          {t.quantity}: {quantity}
-                        </Text>
+                          <Text style={styles.cardLine}>
+                            {t.currentPrice}: {currentPrice.toFixed(2)} EUR
+                          </Text>
 
-                        <Text style={styles.cardLine}>
-                          {t.currentPrice}: {currentPrice.toFixed(2)} EUR
-                        </Text>
+                          <Text style={styles.cardLine}>
+                            {t.value}: {currentValue.toFixed(2)} EUR
+                          </Text>
 
-                        <Text style={styles.cardLine}>
-                          {t.value}: {currentValue.toFixed(2)} EUR
-                        </Text>
+                          <Text style={styles.cardLine}>
+                            {t.annualRate}: {rate.toFixed(2)}%
+                          </Text>
 
-                        <Text style={styles.cardLine}>
-                          {t.annualRate}: {rate.toFixed(2)}%
-                        </Text>
+                          <Text style={[styles.cardLine, styles.incomeLine]}>
+                            {t.passiveIncomePerYear}: {passiveIncomePerYear.toFixed(2)} EUR
+                          </Text>
+                        </>
+                      )}
 
-                        <Text style={[styles.cardLine, styles.incomeLine]}>
-                          {t.passiveIncomePerYear}: {passiveIncomePerYear.toFixed(2)} EUR
-                        </Text>
-                      </>
-                    )}
+                      {asset.category === "deposit" && (
+                        <>
+                          <Text style={styles.cardLine}>
+                            {t.principalAmount}: {quantity.toFixed(2)} EUR
+                          </Text>
 
-                    {asset.category === "deposit" && (
-                      <>
+                          <Text style={styles.cardLine}>
+                            {t.annualRate}: {rate.toFixed(2)}%
+                          </Text>
+
+                          <Text style={[styles.cardLine, styles.incomeLine]}>
+                            {t.passiveIncomePerYear}: {passiveIncomePerYear.toFixed(2)} EUR
+                          </Text>
+                        </>
+                      )}
+
+                      {asset.category === "cash" && (
                         <Text style={styles.cardLine}>
                           {t.principalAmount}: {quantity.toFixed(2)} EUR
                         </Text>
+                      )}
 
-                        <Text style={styles.cardLine}>
-                          {t.annualRate}: {rate.toFixed(2)}%
-                        </Text>
+                      <View style={styles.actionsRow}>
+                        <Pressable
+                          style={styles.editButton}
+                          onPress={() =>
+                            router.push({
+                              pathname: "/add-asset",
+                              params: { assetId: asset.id },
+                            })
+                          }
+                        >
+                          <Text style={styles.actionText}>{t.edit}</Text>
+                        </Pressable>
 
-                        <Text style={[styles.cardLine, styles.incomeLine]}>
-                          {t.passiveIncomePerYear}: {passiveIncomePerYear.toFixed(2)} EUR
-                        </Text>
-                      </>
-                    )}
-
-                    {asset.category === "cash" && (
-                      <Text style={styles.cardLine}>
-                        {t.principalAmount}: {quantity.toFixed(2)} EUR
-                      </Text>
-                    )}
-
-                    <View style={styles.actionsRow}>
-                      <Pressable
-                        style={styles.editButton}
-                        onPress={() =>
-                          router.push({
-                            pathname: "/add-asset",
-                            params: { assetId: asset.id },
-                          })
-                        }
-                      >
-                        <Text style={styles.actionText}>{t.edit}</Text>
-                      </Pressable>
-
-                      <Pressable
-                        style={styles.deleteButton}
-                        onPress={() => deleteAsset(asset.id)}
-                      >
-                        <Text style={styles.actionText}>{t.delete}</Text>
-                      </Pressable>
+                        <Pressable
+                          style={styles.deleteButton}
+                          onPress={() => deleteAsset(asset.id)}
+                        >
+                          <Text style={styles.actionText}>{t.delete}</Text>
+                        </Pressable>
+                      </View>
                     </View>
-                  </View>
-                );
-              })}
-            </View>
-          ))}
-        </ScrollView>
-      )}
+                  );
+                })}
+              </View>
+            ))}
+          </ScrollView>
+        )}
 
-      <Pressable
-        style={styles.addButton}
-        onPress={() => router.push("/add-asset")}
-      >
-        <Text style={styles.addText}>{t.addAsset}</Text>
-      </Pressable>
-    </View>
+        <Pressable
+          style={styles.addButton}
+          onPress={() => router.push("/add-asset")}
+        >
+          <Text style={styles.addText}>{t.addAsset}</Text>
+        </Pressable>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safe: {
+    flex: 1,
+    backgroundColor: "#0f1115",
+  },
+
   container: {
     flex: 1,
     padding: 24,
