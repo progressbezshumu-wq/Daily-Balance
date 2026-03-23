@@ -1,10 +1,12 @@
-import { View, Text, StyleSheet, ScrollView } from "react-native";
+﻿import { View, Text, StyleSheet, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useEffect, useState } from "react";
 
 import { useFinanceStore } from "../../src/store/financeStore";
 import { useLiabilityStore } from "../../src/store/liabilityStore";
 import { useSettingsStore } from "../../src/store/settingsStore";
 import { t } from "../../src/i18n";
+import { fetchLiveRates, convertCurrency } from "../../src/utils/currency";
 
 function getDailyBalanceColor(value: number) {
   if (value > 0) return "#3fb950";
@@ -25,6 +27,13 @@ function toSafeNumber(value: unknown) {
 }
 
 function getLiabilityYearlyValue(liability: any) {
+  const paymentAmount = toSafeNumber(liability?.paymentAmount);
+  const paymentPeriod = liability?.paymentPeriod;
+
+  if (paymentPeriod === "daily") return paymentAmount * 365;
+  if (paymentPeriod === "monthly") return paymentAmount * 12;
+  if (paymentPeriod === "yearly") return paymentAmount;
+
   return toSafeNumber(liability?.yearlyPayment);
 }
 
@@ -60,7 +69,7 @@ function getOverviewAdvice(
     if (passiveExpensesPerYear > 0 && dailyBalance > 0) {
       return {
         title: "Порада",
-        text: "Баланс уже позитивний. Наступний сильний крок — поступово зменшувати пасиви, щоб прискорити зростання.",
+        text: "Баланс уже позитивний. Наступний сильний крок — поступово зменшувати пасиви.",
       };
     }
 
@@ -145,44 +154,64 @@ export default function OverviewScreen() {
   const activeExpensesPerYear = useFinanceStore((state) => state.activeExpensesPerYear);
   const liabilities = useLiabilityStore((state) => state.liabilities);
   const language = (useSettingsStore((state) => state.language) ?? "en") as "en" | "de" | "uk";
+  const displayCurrency = useSettingsStore((state) => state.displayCurrency) ?? "EUR";
+
+  const [rates, setRates] = useState<any>(null);
+
+  useEffect(() => {
+    fetchLiveRates().then(setRates);
+  }, []);
+
+  const convertValue = (value: number, from: string | undefined) => {
+    if (!rates) return value;
+    return convertCurrency(value, (from ?? "EUR") as any, displayCurrency as any, rates);
+  };
 
   const netWorth = assets.reduce((sum, asset) => {
-    return sum + toSafeNumber(asset.quantity) * toSafeNumber(asset.currentPrice);
+    const nativeValue = toSafeNumber(asset.quantity) * toSafeNumber(asset.currentPrice);
+    return sum + convertValue(nativeValue, asset.currency);
   }, 0);
 
   const stakingIncomePerYear = assets.reduce((sum, asset) => {
     if (asset.category !== "staking") return sum;
-    const value = toSafeNumber(asset.quantity) * toSafeNumber(asset.currentPrice);
-    return sum + value * (toSafeNumber(asset.rate) / 100);
+    const nativeValue = toSafeNumber(asset.quantity) * toSafeNumber(asset.currentPrice);
+    const convertedValue = convertValue(nativeValue, asset.currency);
+    return sum + convertedValue * (toSafeNumber(asset.rate) / 100);
   }, 0);
 
   const depositIncomePerYear = assets.reduce((sum, asset) => {
     if (asset.category !== "deposit") return sum;
-    const value = toSafeNumber(asset.quantity) * toSafeNumber(asset.currentPrice);
-    return sum + value * (toSafeNumber(asset.rate) / 100);
+    const nativeValue = toSafeNumber(asset.quantity) * toSafeNumber(asset.currentPrice);
+    const convertedValue = convertValue(nativeValue, asset.currency);
+    return sum + convertedValue * (toSafeNumber(asset.rate) / 100);
   }, 0);
 
   const otherPassiveIncomePerYear = assets.reduce((sum, asset) => {
     if (asset.category === "staking" || asset.category === "deposit") return sum;
 
-    const value = toSafeNumber(asset.quantity) * toSafeNumber(asset.currentPrice);
+    const nativeValue = toSafeNumber(asset.quantity) * toSafeNumber(asset.currentPrice);
+    const convertedValue = convertValue(nativeValue, asset.currency);
     const rate = toSafeNumber(asset.rate);
 
     if (rate <= 0) return sum;
-    return sum + value * (rate / 100);
+    return sum + convertedValue * (rate / 100);
   }, 0);
 
   const passiveIncomePerYear =
     stakingIncomePerYear + depositIncomePerYear + otherPassiveIncomePerYear;
 
   const passiveExpensesPerYear = liabilities.reduce((sum, liability) => {
-    return sum + getLiabilityYearlyValue(liability);
+    const nativeYearly = getLiabilityYearlyValue(liability);
+    return sum + convertValue(nativeYearly, liability.currency);
   }, 0);
 
-  const totalIncomePerYear = activeIncomePerYear + passiveIncomePerYear;
-  const totalExpensesPerYear = activeExpensesPerYear + passiveExpensesPerYear;
+  const convertedActiveIncomePerYear = convertValue(activeIncomePerYear, "EUR");
+  const convertedActiveExpensesPerYear = convertValue(activeExpensesPerYear, "EUR");
 
-  const activeIncomePerDay = activeIncomePerYear / 365;
+  const totalIncomePerYear = convertedActiveIncomePerYear + passiveIncomePerYear;
+  const totalExpensesPerYear = convertedActiveExpensesPerYear + passiveExpensesPerYear;
+
+  const activeIncomePerDay = totalIncomePerYear === 0 ? 0 : convertedActiveIncomePerYear / 365;
   const passiveIncomePerDay = passiveIncomePerYear / 365;
   const dailyBalance = (totalIncomePerYear - totalExpensesPerYear) / 365;
   const dailyBalanceColor = getDailyBalanceColor(dailyBalance);
@@ -218,7 +247,7 @@ export default function OverviewScreen() {
                 <View style={styles.coinGlossPrimary} />
                 <View style={styles.coinGlossSecondary} />
                 <View style={styles.coinInner}>
-                  <Text style={styles.coinCurrency}>EUR</Text>
+                  <Text style={styles.coinCurrency}>{displayCurrency}</Text>
                   <Text style={[styles.coinValue, { color: dailyBalanceColor }]}>
                     {dailyBalance.toFixed(2)}
                   </Text>
@@ -234,7 +263,7 @@ export default function OverviewScreen() {
                 <View style={[styles.splitHalf, styles.splitHalfLeft]}>
                   <Text style={styles.splitLabel}>{t(language, "active")}</Text>
                   <Text style={[styles.splitValue, { color: "#4f8cff" }]}>
-                    {activeIncomePerDay.toFixed(2)} EUR
+                    {activeIncomePerDay.toFixed(2)} {displayCurrency}
                   </Text>
                   <Text style={styles.splitPercent}>
                     {activeIncomePercent.toFixed(0)}%
@@ -244,7 +273,7 @@ export default function OverviewScreen() {
                 <View style={[styles.splitHalf, styles.splitHalfRight]}>
                   <Text style={styles.splitLabel}>{t(language, "passive")}</Text>
                   <Text style={[styles.splitValue, { color: "#3fb950" }]}>
-                    {passiveIncomePerDay.toFixed(2)} EUR
+                    {passiveIncomePerDay.toFixed(2)} {displayCurrency}
                   </Text>
                   <Text style={styles.splitPercent}>
                     {passiveIncomePercent.toFixed(0)}%
@@ -275,7 +304,7 @@ export default function OverviewScreen() {
               </View>
 
               <Text style={[styles.capitalValue, { color: getNetWorthColor(netWorth) }]}>
-                {netWorth.toFixed(2)} EUR
+                {netWorth.toFixed(2)} {displayCurrency}
               </Text>
             </View>
 

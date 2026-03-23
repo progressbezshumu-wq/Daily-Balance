@@ -1,4 +1,4 @@
-﻿export const translations = {
+export const translations = {
   en: {
     overview: "Overview",
     portfolio: "Portfolio",
@@ -10,6 +10,9 @@
 
     changeLanguage: "Change language",
     currentLanguage: "Current language",
+    languageEnglish: "English",
+    languageGerman: "German",
+    languageUkrainian: "Ukrainian",
 
     totalAssets: "Total assets",
     addAsset: "Add asset",
@@ -100,6 +103,9 @@
 
     changeLanguage: "Sprache \u00e4ndern",
     currentLanguage: "Aktuelle Sprache",
+    languageEnglish: "Englisch",
+    languageGerman: "Deutsch",
+    languageUkrainian: "Ukrainisch",
 
     totalAssets: "Gesamtverm\u00f6gen",
     addAsset: "Verm\u00f6gen hinzuf\u00fcgen",
@@ -190,6 +196,9 @@
 
     changeLanguage: "\u0417\u043c\u0456\u043d\u0438\u0442\u0438 \u043c\u043e\u0432\u0443",
     currentLanguage: "\u041f\u043e\u0442\u043e\u0447\u043d\u0430 \u043c\u043e\u0432\u0430",
+    languageEnglish: "\u0410\u043d\u0433\u043b\u0456\u0439\u0441\u044c\u043a\u0430",
+    languageGerman: "\u041d\u0456\u043c\u0435\u0446\u044c\u043a\u0430",
+    languageUkrainian: "\u0423\u043a\u0440\u0430\u0457\u043d\u0441\u044c\u043a\u0430",
 
     totalAssets: "\u0417\u0430\u0433\u0430\u043b\u044c\u043d\u0456 \u0430\u043a\u0442\u0438\u0432\u0438",
     addAsset: "\u0414\u043e\u0434\u0430\u0442\u0438 \u0430\u043a\u0442\u0438\u0432",

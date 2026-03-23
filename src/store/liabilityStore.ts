@@ -1,13 +1,17 @@
-﻿import AsyncStorage from "@react-native-async-storage/async-storage";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+
+export type LiabilityPaymentPeriod = "daily" | "monthly" | "yearly";
 
 export type Liability = {
   id: string;
   name: string;
   amount: number;
   interestRate: number;
-  yearlyPayment: number;
+  paymentAmount: number;
+  paymentPeriod: LiabilityPaymentPeriod;
+  yearlyPayment?: number;
 };
 
 type NewLiability = Omit<Liability, "id">;
@@ -38,17 +42,13 @@ export const useLiabilityStore = create<LiabilityStore>()(
 
       deleteLiability: (id) =>
         set((state) => ({
-          liabilities: state.liabilities.filter(
-            (liability) => liability.id !== id
-          ),
+          liabilities: state.liabilities.filter((liability) => liability.id !== id),
         })),
 
       updateLiability: (id, updatedFields) =>
         set((state) => ({
           liabilities: state.liabilities.map((liability) =>
-            liability.id === id
-              ? { ...liability, ...updatedFields }
-              : liability
+            liability.id === id ? { ...liability, ...updatedFields } : liability
           ),
         })),
 

@@ -2,8 +2,10 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
+import type { SupportedCurrency } from "../utils/currency";
+
 export type AppLanguage = "en" | "de" | "uk";
-export type Currency = "EUR" | "USD" | "UAH";
+export type Currency = SupportedCurrency;
 
 type SettingsState = {
   language: AppLanguage | null;

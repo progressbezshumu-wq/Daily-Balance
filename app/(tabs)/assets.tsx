@@ -9,9 +9,20 @@ import { useSettingsStore } from "../../src/store/settingsStore";
 import { translations } from "../../src/i18n/translations";
 import { assetLogos } from "../../src/constants/assetLogos";
 
+const FX: Record<string, number> = {
+  EUR: 1,
+  USD: 1.1,
+  UAH: 42,
+};
+
 function toSafeNumber(value: unknown) {
   const num = Number(value);
   return Number.isFinite(num) ? num : 0;
+}
+
+function convert(value: number, from: string, to: string) {
+  const eur = value / (FX[from] ?? 1);
+  return eur * (FX[to] ?? 1);
 }
 
 function getCategoryIconName(category: string | undefined) {
@@ -47,6 +58,7 @@ export default function AssetsScreen() {
   const updateAsset = useFinanceStore((state) => state.updateAsset);
 
   const language = useSettingsStore((state) => state.language) ?? "en";
+  const displayCurrency = useSettingsStore((state) => state.displayCurrency);
   const t = translations[language];
 
   const [cashInput, setCashInput] = useState("");
@@ -79,19 +91,27 @@ export default function AssetsScreen() {
     Keyboard.dismiss();
   }
 
-  const total = assets.reduce(
-    (sum, asset) =>
-      sum + toSafeNumber(asset.quantity) * toSafeNumber(asset.currentPrice),
-    0
-  );
+  const total = assets.reduce((sum, asset) => {
+    const nativeValue =
+      toSafeNumber(asset.quantity) * toSafeNumber(asset.currentPrice);
+    return sum + convert(nativeValue, asset.currency, displayCurrency);
+  }, 0);
 
   const groupedAssets = ["crypto", "stock", "etf", "staking", "deposit", "cash"]
     .map((category) => {
       const items = assets
         .filter((asset) => (asset.category ?? "crypto") === category)
         .sort((a, b) => {
-          const aValue = toSafeNumber(a.quantity) * toSafeNumber(a.currentPrice);
-          const bValue = toSafeNumber(b.quantity) * toSafeNumber(b.currentPrice);
+          const aValue = convert(
+            toSafeNumber(a.quantity) * toSafeNumber(a.currentPrice),
+            a.currency,
+            displayCurrency
+          );
+          const bValue = convert(
+            toSafeNumber(b.quantity) * toSafeNumber(b.currentPrice),
+            b.currency,
+            displayCurrency
+          );
           return bValue - aValue;
         });
 
@@ -109,7 +129,7 @@ export default function AssetsScreen() {
         <Text style={styles.title}>{t.assets}</Text>
 
         <Text style={styles.total}>
-          {t.totalAssets}: {total.toFixed(2)} EUR
+          {t.totalAssets}: {total.toFixed(2)} {displayCurrency}
         </Text>
 
         <View style={styles.cashBox}>
@@ -176,13 +196,35 @@ export default function AssetsScreen() {
                   const currentPrice = toSafeNumber(asset.currentPrice);
                   const rate = toSafeNumber(asset.rate);
 
-                  const currentValue = quantity * currentPrice;
-                  const buyValue = quantity * buyPrice;
+                  const currentValueNative = quantity * currentPrice;
+                  const buyValueNative = quantity * buyPrice;
+
+                  const currentValue = convert(
+                    currentValueNative,
+                    asset.currency,
+                    displayCurrency
+                  );
+                  const buyValue = convert(
+                    buyValueNative,
+                    asset.currency,
+                    displayCurrency
+                  );
+                  const convertedBuyPrice = convert(
+                    buyPrice,
+                    asset.currency,
+                    displayCurrency
+                  );
+                  const convertedCurrentPrice = convert(
+                    currentPrice,
+                    asset.currency,
+                    displayCurrency
+                  );
+
                   const profit = currentValue - buyValue;
                   const profitPercent =
                     buyValue !== 0 ? (profit / buyValue) * 100 : 0;
 
-                  const passiveIncomePerYearEur = currentValue * (rate / 100);
+                  const passiveIncomePerYearDisplay = currentValue * (rate / 100);
                   const passiveIncomeNativeStaking = quantity * (rate / 100);
                   const passiveIncomeNativeDeposit = quantity * (rate / 100);
 
@@ -236,19 +278,19 @@ export default function AssetsScreen() {
                           </Text>
 
                           <Text style={styles.cardLine}>
-                            {t.buyPrice}: {buyPrice.toFixed(2)} EUR
+                            {t.buyPrice}: {convertedBuyPrice.toFixed(2)} {displayCurrency}
                           </Text>
 
                           <Text style={styles.cardLine}>
-                            {t.currentPrice}: {currentPrice.toFixed(2)} EUR
+                            {t.currentPrice}: {convertedCurrentPrice.toFixed(2)} {displayCurrency}
                           </Text>
 
                           <Text style={styles.cardLine}>
-                            {t.value}: {currentValue.toFixed(2)} EUR
+                            {t.value}: {currentValue.toFixed(2)} {displayCurrency}
                           </Text>
 
                           <Text style={[styles.cardLine, { color: profitColor }]}>
-                            {t.profitLoss}: {profit.toFixed(2)} EUR ({profitPercent.toFixed(2)}%)
+                            {t.profitLoss}: {profit.toFixed(2)} {displayCurrency} ({profitPercent.toFixed(2)}%)
                           </Text>
                         </>
                       )}
@@ -260,11 +302,11 @@ export default function AssetsScreen() {
                           </Text>
 
                           <Text style={styles.cardLine}>
-                            {t.currentPrice}: {currentPrice.toFixed(2)} EUR
+                            {t.currentPrice}: {convertedCurrentPrice.toFixed(2)} {displayCurrency}
                           </Text>
 
                           <Text style={styles.cardLine}>
-                            {t.value}: {currentValue.toFixed(2)} EUR
+                            {t.value}: {currentValue.toFixed(2)} {displayCurrency}
                           </Text>
 
                           <Text style={styles.cardLine}>
@@ -276,7 +318,7 @@ export default function AssetsScreen() {
                           </Text>
 
                           <Text style={[styles.cardLine, styles.incomeSubLine]}>
-                            ~ {passiveIncomePerYearEur.toFixed(2)} EUR
+                            ~ {passiveIncomePerYearDisplay.toFixed(2)} {displayCurrency}
                           </Text>
                         </>
                       )}
@@ -284,7 +326,7 @@ export default function AssetsScreen() {
                       {asset.category === "deposit" && (
                         <>
                           <Text style={styles.cardLine}>
-                            {t.principalAmount}: {quantity.toFixed(2)} {asset.currency}
+                            {t.principalAmount}: {convert(quantity, asset.currency, displayCurrency).toFixed(2)} {displayCurrency}
                           </Text>
 
                           <Text style={styles.cardLine}>
@@ -296,14 +338,14 @@ export default function AssetsScreen() {
                           </Text>
 
                           <Text style={[styles.cardLine, styles.incomeSubLine]}>
-                            ~ {passiveIncomePerYearEur.toFixed(2)} EUR
+                            ~ {passiveIncomePerYearDisplay.toFixed(2)} {displayCurrency}
                           </Text>
                         </>
                       )}
 
                       {asset.category === "cash" && (
                         <Text style={styles.cardLine}>
-                          {t.principalAmount}: {quantity.toFixed(2)} EUR
+                          {t.principalAmount}: {convert(quantity, asset.currency, displayCurrency).toFixed(2)} {displayCurrency}
                         </Text>
                       )}
 

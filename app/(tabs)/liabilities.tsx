@@ -1,13 +1,27 @@
 ﻿import { View, Text, StyleSheet, Pressable, ScrollView } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 
 import { useLiabilityStore } from "../../src/store/liabilityStore";
 import { useSettingsStore } from "../../src/store/settingsStore";
 import { t } from "../../src/i18n";
 
+const FX: Record<string, number> = {
+  EUR: 1,
+  USD: 1.1,
+  UAH: 42,
+};
+
 function toSafeNumber(value: unknown) {
   const num = Number(value);
   return Number.isFinite(num) ? num : 0;
+}
+
+function convert(value: number, from: string | undefined, to: string | undefined) {
+  const fromRate = FX[from ?? "EUR"] ?? 1;
+  const toRate = FX[to ?? "EUR"] ?? 1;
+  const eurValue = value / fromRate;
+  return eurValue * toRate;
 }
 
 function getYearlyPayment(liability: any) {
@@ -25,9 +39,10 @@ export default function LiabilitiesScreen() {
   const liabilities = useLiabilityStore((state) => state.liabilities);
   const deleteLiability = useLiabilityStore((state) => state.deleteLiability);
   const language = useSettingsStore((state) => state.language) ?? "en";
+  const displayCurrency = useSettingsStore((state) => state.displayCurrency) ?? "EUR";
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.headerRow}>
         <Text style={styles.title}>{t(language, "liabilities")}</Text>
 
@@ -45,50 +60,67 @@ export default function LiabilitiesScreen() {
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.list}>
-          {liabilities.map((liability) => (
-            <View key={liability.id} style={styles.card}>
-              <Text style={styles.name}>{liability.name}</Text>
+          {liabilities.map((liability) => {
+            const paymentAmount = toSafeNumber(liability.paymentAmount);
+            const yearlyPayment = getYearlyPayment(liability);
 
-              <Text style={styles.detail}>
-                {t(language, "paymentAmount")}:{" "}
-                {toSafeNumber(liability.paymentAmount).toFixed(2)} EUR
-              </Text>
+            const convertedPaymentAmount = convert(
+              paymentAmount,
+              liability.currency,
+              displayCurrency
+            );
 
-              <Text style={styles.detail}>
-                {t(language, "paymentPeriod")}:{" "}
-                {t(language, liability.paymentPeriod)}
-              </Text>
+            const convertedYearlyPayment = convert(
+              yearlyPayment,
+              liability.currency,
+              displayCurrency
+            );
 
-              <Text style={styles.detail}>
-                {t(language, "yearlyPayment")}:{" "}
-                {getYearlyPayment(liability).toFixed(2)} EUR
-              </Text>
+            return (
+              <View key={liability.id} style={styles.card}>
+                <Text style={styles.name}>{liability.name}</Text>
 
-              <View style={styles.actionsRow}>
-                <Pressable
-                  style={styles.editButton}
-                  onPress={() =>
-                    router.push({
-                      pathname: "/add-liability",
-                      params: { liabilityId: liability.id },
-                    })
-                  }
-                >
-                  <Text style={styles.actionButtonText}>{t(language, "edit")}</Text>
-                </Pressable>
+                <Text style={styles.detail}>
+                  {t(language, "paymentAmount")}:{" "}
+                  {convertedPaymentAmount.toFixed(2)} {displayCurrency}
+                </Text>
 
-                <Pressable
-                  style={styles.deleteButton}
-                  onPress={() => deleteLiability(liability.id)}
-                >
-                  <Text style={styles.actionButtonText}>{t(language, "delete")}</Text>
-                </Pressable>
+                <Text style={styles.detail}>
+                  {t(language, "paymentPeriod")}:{" "}
+                  {t(language, liability.paymentPeriod)}
+                </Text>
+
+                <Text style={styles.detail}>
+                  {t(language, "yearlyPayment")}:{" "}
+                  {convertedYearlyPayment.toFixed(2)} {displayCurrency}
+                </Text>
+
+                <View style={styles.actionsRow}>
+                  <Pressable
+                    style={styles.editButton}
+                    onPress={() =>
+                      router.push({
+                        pathname: "/add-liability",
+                        params: { liabilityId: liability.id },
+                      })
+                    }
+                  >
+                    <Text style={styles.actionButtonText}>{t(language, "edit")}</Text>
+                  </Pressable>
+
+                  <Pressable
+                    style={styles.deleteButton}
+                    onPress={() => deleteLiability(liability.id)}
+                  >
+                    <Text style={styles.actionButtonText}>{t(language, "delete")}</Text>
+                  </Pressable>
+                </View>
               </View>
-            </View>
-          ))}
+            );
+          })}
         </ScrollView>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -96,7 +128,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#0f1218",
-    padding: 20,
+    paddingHorizontal: 20,
   },
 
   headerRow: {
@@ -104,6 +136,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 20,
+    paddingTop: 8,
   },
 
   title: {

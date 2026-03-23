@@ -1,4 +1,5 @@
-﻿import { View, Text, TextInput, StyleSheet, Pressable } from "react-native";
+import { View, Text, TextInput, StyleSheet, Pressable } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useEffect, useMemo, useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 
@@ -40,15 +41,13 @@ export default function AddLiabilityScreen() {
     if (isEditMode && existingLiability) {
       updateLiability(existingLiability.id, {
         name: name.trim(),
-        amount,
-        interestRate: existingLiability.interestRate ?? 0,
         paymentAmount: amount,
         paymentPeriod,
       });
     } else {
       addLiability({
         name: name.trim(),
-        amount,
+        amount: 0,
         interestRate: 0,
         paymentAmount: amount,
         paymentPeriod,
@@ -59,7 +58,7 @@ export default function AddLiabilityScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top"]}>
       <Text style={styles.title}>
         {isEditMode ? t(language, "edit") : t(language, "addLiability")}
       </Text>
@@ -103,7 +102,7 @@ export default function AddLiabilityScreen() {
           {isEditMode ? t(language, "edit") : t(language, "addLiability")}
         </Text>
       </Pressable>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -111,7 +110,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#0f1218",
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingTop: 8,
   },
 
   title: {
