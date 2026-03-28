@@ -1,6 +1,7 @@
-﻿import { Redirect, Stack } from "expo-router";
+import { Redirect, Stack } from "expo-router";
 import { useEffect } from "react";
 
+import { initPurchases } from "../src/services/purchaseService";
 import { useSettingsStore } from "../src/store/settingsStore";
 
 function RootNavigator() {
@@ -24,6 +25,10 @@ function RootNavigator() {
 }
 
 export default function RootLayout() {
+  useEffect(() => {
+    initPurchases();
+  }, []);
+
   return (
     <>
       <RootNavigator />

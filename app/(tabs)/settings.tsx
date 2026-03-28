@@ -73,15 +73,15 @@ export default function SettingsScreen() {
             </Text>
           </Pressable>
 
-          <View style={styles.card}>
+          <Pressable onPress={() => router.push("/feedback")} style={styles.card}>
             <Text style={styles.cardTitle}>{getFeedbackTitle(language)}</Text>
             <Text style={styles.cardSubtext}>{getFeedbackDescription(language)}</Text>
-          </View>
+          </Pressable>
 
-          <View style={styles.card}>
+          <Pressable onPress={() => router.push("/about-app")} style={styles.card}>
             <Text style={styles.cardTitle}>{getAboutAppTitle(language)}</Text>
             <Text style={styles.cardSubtext}>{getAboutAppDescription(language)}</Text>
-          </View>
+          </Pressable>
         </View>
       </ScrollView>
     </SafeAreaView>

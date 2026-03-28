@@ -1,7 +1,7 @@
-import { View, Text, StyleSheet, Dimensions, ScrollView, RefreshControl } from "react-native";
+import { View, Text, StyleSheet, Dimensions, ScrollView, RefreshControl, Pressable, Alert } from "react-native";
 import { useState, useEffect, useMemo } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Svg, { Circle, G } from "react-native-svg";
+import Svg, { Circle, Path } from "react-native-svg";
 
 import { useFinanceStore } from "../../src/store/financeStore";
 import { useSettingsStore } from "../../src/store/settingsStore";
@@ -9,27 +9,71 @@ import { t } from "../../src/i18n";
 import { fetchLiveRates, convertCurrency } from "../../src/utils/currency";
 
 const screenWidth = Dimensions.get("window").width;
+const chartSize = Math.min(screenWidth - 96, 240);
+const radius = chartSize / 2;
+
+const palette = [
+  "#4F7CFF",
+  "#4FC3F7",
+  "#A855F7",
+  "#22C55E",
+  "#F59E0B",
+  "#EF4444",
+  "#14B8A6",
+  "#F472B6",
+  "#84CC16",
+  "#8B5CF6",
+];
 
 function toSafeNumber(value: unknown) {
   const num = Number(value);
   return Number.isFinite(num) ? num : 0;
 }
 
-const allocationColors = [
-  "#3fb950",
-  "#58a6ff",
-  "#f2cc60",
-  "#ff7b72",
-  "#bc8cff",
-  "#39c5cf",
-  "#ffa657",
-  "#7ee787",
-];
+function getStableColor(key: string) {
+  let hash = 0;
+  for (let i = 0; i < key.length; i += 1) {
+    hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+  }
+  return palette[hash % palette.length];
+}
 
-const chartSize = Math.min(screenWidth - 96, 220);
-const strokeWidth = 28;
-const radius = (chartSize - strokeWidth) / 2;
-const circumference = 2 * Math.PI * radius;
+function getAllocationHelp(language: string) {
+  if (language === "de") {
+    return "Zeigt, wie dein Portfolio auf deine Assets verteilt ist.";
+  }
+
+  if (language === "uk") {
+    return "???????, ?? ???? ???? ???????? ???????????? ??? ????????.";
+  }
+
+  return "Shows how your portfolio is distributed across your assets.";
+}
+
+function polarToCartesian(cx: number, cy: number, r: number, angleInDegrees: number) {
+  const angleInRadians = ((angleInDegrees - 90) * Math.PI) / 180.0;
+  return {
+    x: cx + r * Math.cos(angleInRadians),
+    y: cy + r * Math.sin(angleInRadians),
+  };
+}
+
+function describeSector(cx: number, cy: number, r: number, startAngle: number, endAngle: number) {
+  if (endAngle - startAngle >= 359.999) {
+    return null;
+  }
+
+  const start = polarToCartesian(cx, cy, r, endAngle);
+  const end = polarToCartesian(cx, cy, r, startAngle);
+  const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
+
+  return [
+    "M", cx, cy,
+    "L", start.x, start.y,
+    "A", r, r, 0, largeArcFlag, 0, end.x, end.y,
+    "Z",
+  ].join(" ");
+}
 
 export default function PortfolioScreen() {
   const assets = useFinanceStore((state) => state.assets);
@@ -46,32 +90,52 @@ export default function PortfolioScreen() {
   const portfolioData = useMemo(() => {
     let portfolioValue = 0;
 
-    const holdings = assets
-      .map((asset, index) => {
-        const quantity = toSafeNumber(asset.quantity);
-        const currentPrice = toSafeNumber(asset.currentPrice ?? asset.buyPrice);
-        const currentValue = quantity * currentPrice;
+    const groupedMap: Record<
+      string,
+      {
+        key: string;
+        label: string;
+        value: number;
+        color: string;
+      }
+    > = {};
 
-        const convertedValue = rates
-          ? convertCurrency(currentValue, asset.currency, displayCurrency, rates)
-          : currentValue;
+    for (const asset of assets) {
+      const quantity = toSafeNumber(asset.quantity);
+      const currentPrice = toSafeNumber(asset.currentPrice ?? asset.buyPrice);
+      const currentValue = quantity * currentPrice;
 
-        portfolioValue += convertedValue;
+      const convertedValue = rates
+        ? convertCurrency(currentValue, asset.currency, displayCurrency, rates)
+        : currentValue;
 
-        return {
-          key: asset.id,
-          label: asset.symbol || asset.name || `${t(language, asset.category as any)} ${index + 1}`,
-          value: convertedValue,
-          color: allocationColors[index % allocationColors.length],
+      portfolioValue += convertedValue;
+
+      const symbol = (asset.symbol || "").trim();
+      const name = (asset.name || "").trim();
+      const categoryLabel = t(language, asset.category as any);
+      const groupKey = symbol || name || asset.category || "asset";
+      const label = symbol || name || categoryLabel;
+
+      if (!groupedMap[groupKey]) {
+        groupedMap[groupKey] = {
+          key: groupKey,
+          label,
+          value: 0,
+          color: getStableColor(groupKey),
         };
-      })
-      .filter((item) => item.value > 0)
-      .sort((a, b) => b.value - a.value);
+      }
 
-    const allocationEntries = holdings.map((item) => ({
-      ...item,
-      percent: portfolioValue > 0 ? (item.value / portfolioValue) * 100 : 0,
-    }));
+      groupedMap[groupKey].value += convertedValue;
+    }
+
+    const allocationEntries = Object.values(groupedMap)
+      .filter((item) => item.value > 0)
+      .sort((a, b) => b.value - a.value)
+      .map((item) => ({
+        ...item,
+        percent: portfolioValue > 0 ? (item.value / portfolioValue) * 100 : 0,
+      }));
 
     return {
       portfolioValue,
@@ -89,7 +153,7 @@ export default function PortfolioScreen() {
     });
   }
 
-  let accumulatedPercent = 0;
+  let currentAngle = 0;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -108,43 +172,49 @@ export default function PortfolioScreen() {
         </View>
 
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>{t(language, "portfolioAllocation")}</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>{t(language, "portfolioAllocation")}</Text>
+
+            <Pressable
+              style={styles.helpButton}
+              onPress={() => Alert.alert(t(language, "help"), getAllocationHelp(language))}
+            >
+              <Text style={styles.helpButtonText}>?</Text>
+            </Pressable>
+          </View>
 
           {allocationEntries.length > 0 ? (
             <>
               <View style={styles.chartWrap}>
                 <Svg width={chartSize} height={chartSize}>
-                  <G rotation="-90" origin={`${chartSize / 2}, ${chartSize / 2}`}>
-                    <Circle
-                      cx={chartSize / 2}
-                      cy={chartSize / 2}
-                      r={radius}
-                      stroke="#2a3140"
-                      strokeWidth={strokeWidth}
-                      fill="none"
-                    />
+                  <Circle cx={radius} cy={radius} r={radius} fill="#2a3140" />
 
-                    {allocationEntries.map((item) => {
-                      const dash = (item.percent / 100) * circumference;
-                      const offset = circumference - (accumulatedPercent / 100) * circumference;
-                      accumulatedPercent += item.percent;
+                  {allocationEntries.map((item, index) => {
+                    const sweepAngle =
+                      index === allocationEntries.length - 1
+                        ? 360 - currentAngle
+                        : (item.percent / 100) * 360;
 
+                    const startAngle = currentAngle;
+                    const endAngle = currentAngle + sweepAngle;
+                    currentAngle = endAngle;
+
+                    const path = describeSector(radius, radius, radius, startAngle, endAngle);
+
+                    if (!path) {
                       return (
                         <Circle
                           key={item.key}
-                          cx={chartSize / 2}
-                          cy={chartSize / 2}
+                          cx={radius}
+                          cy={radius}
                           r={radius}
-                          stroke={item.color}
-                          strokeWidth={strokeWidth}
-                          fill="none"
-                          strokeLinecap="butt"
-                          strokeDasharray={`${dash} ${circumference - dash}`}
-                          strokeDashoffset={offset}
+                          fill={item.color}
                         />
                       );
-                    })}
-                  </G>
+                    }
+
+                    return <Path key={item.key} d={path} fill={item.color} />;
+                  })}
                 </Svg>
               </View>
 
@@ -202,20 +272,39 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   heroValue: {
-    color: "white",
-    fontSize: 28,
-    fontWeight: "700",
+    color: "#ffffff",
+    fontSize: 34,
+    fontWeight: "800",
+    letterSpacing: 0.4,
   },
   sectionCard: {
     backgroundColor: "#1b2130",
     borderRadius: 18,
     padding: 18,
   },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
   sectionTitle: {
     color: "white",
     fontSize: 18,
     fontWeight: "700",
-    marginBottom: 12,
+  },
+  helpButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#151b26",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  helpButtonText: {
+    color: "#8b93a7",
+    fontSize: 14,
+    fontWeight: "700",
   },
   chartWrap: {
     width: "100%",

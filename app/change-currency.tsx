@@ -92,6 +92,12 @@ export default function ChangeCurrencyScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.container}>
+        <View style={styles.topRow}>
+          <Pressable onPress={() => router.back()} style={styles.backButton}>
+            <Text style={styles.backButtonText}>←</Text>
+          </Pressable>
+        </View>
+
         <Text style={styles.title}>{getScreenTitle(language)}</Text>
 
         <TextInput
@@ -135,6 +141,23 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 24,
+  },
+  topRow: {
+    marginBottom: 12,
+  },
+  backButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: "#1c2230",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  backButtonText: {
+    color: "white",
+    fontSize: 24,
+    fontWeight: "700",
+    marginTop: -2,
   },
   title: {
     color: "white",
