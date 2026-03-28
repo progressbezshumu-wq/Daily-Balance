@@ -1,5 +1,5 @@
-import { Redirect, Stack } from "expo-router";
-import { useEffect } from "react";
+﻿import { Redirect, Stack } from "expo-router";
+import { useEffect } from "react";`nimport { initPurchases } from "../src/utils/purchases";
 
 import { initPurchases } from "../src/services/purchaseService";
 import { useSettingsStore } from "../src/store/settingsStore";
@@ -9,9 +9,7 @@ function RootNavigator() {
   const isReady = useSettingsStore((state) => state.isReady);
   const loadLanguage = useSettingsStore((state) => state.loadLanguage);
 
-  useEffect(() => {
-    loadLanguage();
-  }, [loadLanguage]);
+  useEffect(() => { loadLanguage(); initPurchases(); }, [loadLanguage]);
 
   if (!isReady) {
     return null;
@@ -39,3 +37,4 @@ export default function RootLayout() {
     </>
   );
 }
+
