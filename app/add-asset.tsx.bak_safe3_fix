@@ -104,11 +104,6 @@ export default function AddAssetScreen() {
   const isManualType = isDepositType;
 
   function handleSave() {
-  const quantityValue = parseLocaleNumber(quantity);
-
-  if (!quantityValue || quantityValue <= 0) {
-    return;
-  }
     const parsedQuantity = parseLocaleNumber(quantity);
     const parsedRate = rate ? parseLocaleNumber(rate) : 0;
 
@@ -472,6 +467,5 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 });
-
 
 

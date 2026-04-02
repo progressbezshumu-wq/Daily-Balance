@@ -42,8 +42,6 @@ type FinanceStore = {
   clearAssets: () => void;
 };
 
-export const MERGEABLE_TYPES = ["stock", "etf", "crypto"];
-
 export const useFinanceStore = create<FinanceStore>()(
   persist(
     (set) => ({
@@ -53,46 +51,17 @@ export const useFinanceStore = create<FinanceStore>()(
       activeExpensesPerYear: 0,
 
       addAsset: (asset) =>
-  set((state) => {
-    const isMergeable = MERGEABLE_TYPES.includes(asset.category);
-
-    if (!isMergeable) {
-      return { assets: [...state.assets, asset] };
-    }
-
-    const existing = state.assets.find(
-      (a) => a.symbol === asset.symbol && a.category === asset.category
-    );
-
-    if (!existing) {
-      return { assets: [...state.assets, asset] };
-    }
-
-    const oldQ = Number(existing.quantity || 0);
-    const newQ = Number(asset.quantity || 0);
-
-    const oldPrice = Number(existing.buyPrice || 0);
-    const newPrice = Number(asset.buyPrice || 0);
-
-    const totalQ = oldQ + newQ;
-
-    const avgPrice =
-  totalQ > 0
-    ? (oldQ * oldPrice + newQ * newPrice) / totalQ
-    : oldPrice;
-
-    const updated = state.assets.map((a) =>
-      a.id === existing.id
-        ? {
-            ...a,
-            quantity: totalQ,
-            buyPrice: avgPrice,
-          }
-        : a
-    );
-
-    return { assets: updated };
-  }),
+        set((state) => ({
+          assets: [
+            ...state.assets,
+            {
+              ...asset,
+              category: asset.category ?? "crypto",
+              currency: asset.currency ?? "EUR",
+              id: Math.random().toString(36).slice(2, 11),
+            },
+          ],
+        })),
 
       deleteAsset: (id) =>
         set((state) => ({
@@ -120,6 +89,3 @@ export const useFinanceStore = create<FinanceStore>()(
     }
   )
 );
-
-
-

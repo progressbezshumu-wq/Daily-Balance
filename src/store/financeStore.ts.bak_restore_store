@@ -44,7 +44,7 @@ type FinanceStore = {
 
 export const MERGEABLE_TYPES = ["stock", "etf", "crypto"];
 
-export const useFinanceStore = create<FinanceStore>()(
+const useFinanceStore = create<FinanceStore>()(
   persist(
     (set) => ({
       assets: [],
@@ -77,9 +77,9 @@ export const useFinanceStore = create<FinanceStore>()(
     const totalQ = oldQ + newQ;
 
     const avgPrice =
-  totalQ > 0
-    ? (oldQ * oldPrice + newQ * newPrice) / totalQ
-    : oldPrice;
+      totalQ > 0
+        ? (oldQ * oldPrice + newQ * newPrice) / totalQ
+        : 0;
 
     const updated = state.assets.map((a) =>
       a.id === existing.id
@@ -120,6 +120,4 @@ export const useFinanceStore = create<FinanceStore>()(
     }
   )
 );
-
-
 

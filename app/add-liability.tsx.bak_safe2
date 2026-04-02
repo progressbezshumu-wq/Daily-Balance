@@ -1,7 +1,6 @@
-﻿import { View, Text, TextInput, StyleSheet, Pressable } from "react-native";
+import { View, Text, TextInput, StyleSheet, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "expo-router";
 import { router, useLocalSearchParams } from "expo-router";
 
 import { useLiabilityStore } from "../src/store/liabilityStore";
@@ -9,7 +8,6 @@ import { useSettingsStore } from "../src/store/settingsStore";
 import { t } from "../src/i18n";
 
 export default function AddLiabilityScreen() {
-  const router = useRouter();
   const { liabilityId } = useLocalSearchParams<{ liabilityId?: string }>();
 
   const liabilities = useLiabilityStore((state) => state.liabilities);
@@ -170,4 +168,3 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
 });
-

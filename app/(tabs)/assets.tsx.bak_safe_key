@@ -136,7 +136,7 @@ export default function AssetsScreen() {
           <View style={styles.cashHeader}>
             <Text style={styles.cashTitle}>{t.cash}</Text>
 
-            <Pressable key={item.id}
+            <Pressable
               style={styles.helpButton}
               onPress={() => setShowCashHelp(true)}
               hitSlop={8}
@@ -157,7 +157,7 @@ export default function AssetsScreen() {
               onSubmitEditing={handleAddCash}
             />
 
-            <Pressable key={item.id} style={styles.cashButton} onPress={handleAddCash}>
+            <Pressable style={styles.cashButton} onPress={handleAddCash}>
               <MaterialCommunityIcons name="arrow-right" size={20} color="white" />
             </Pressable>
           </View>
@@ -170,7 +170,7 @@ export default function AssetsScreen() {
 
               <Text style={styles.modalText}>{t.cashHelpText}</Text>
 
-              <Pressable key={item.id} style={styles.modalCloseButton} onPress={() => setShowCashHelp(false)}>
+              <Pressable style={styles.modalCloseButton} onPress={() => setShowCashHelp(false)}>
                 <Text style={styles.modalCloseButtonText}>{t.ok}</Text>
               </Pressable>
             </View>
@@ -233,7 +233,7 @@ export default function AssetsScreen() {
                     assetLogos[asset.symbol as keyof typeof assetLogos] ?? null;
 
                   return (
-                    <Pressable key={item.id}
+                    <Pressable
                       key={asset.id}
                       style={styles.card}
                       onPress={() =>
@@ -350,7 +350,7 @@ export default function AssetsScreen() {
                       )}
 
                       <View style={styles.actionsRow}>
-                        <Pressable key={item.id}
+                        <Pressable
                           style={styles.editButton}
                           onPress={() =>
                             router.push({
@@ -362,7 +362,7 @@ export default function AssetsScreen() {
                           <Text style={styles.actionText}>{t.edit}</Text>
                         </Pressable>
 
-                        <Pressable key={item.id}
+                        <Pressable
                           style={styles.deleteButton}
                           onPress={() => deleteAsset(asset.id)}
                         >
@@ -377,7 +377,7 @@ export default function AssetsScreen() {
           </ScrollView>
         )}
 
-        <Pressable key={item.id}
+        <Pressable
           style={styles.addButton}
           onPress={() => router.push("/add-asset")}
         >
@@ -595,4 +595,3 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
 });
-

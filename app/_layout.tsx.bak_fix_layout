@@ -1,5 +1,5 @@
 ﻿import { Redirect, Stack } from "expo-router";
-import { useEffect } from "react";
+import { useEffect } from "react";`nimport { initPurchases } from "../src/utils/purchases";
 
 import { initPurchases } from "../src/services/purchaseService";
 import { useSettingsStore } from "../src/store/settingsStore";
@@ -37,6 +37,4 @@ export default function RootLayout() {
     </>
   );
 }
-
-
 

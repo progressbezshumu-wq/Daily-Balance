@@ -1,7 +1,6 @@
-ï»¿import { View, Text, TextInput, StyleSheet, Pressable, FlatList, ScrollView } from "react-native";
+import { View, Text, TextInput, StyleSheet, Pressable, FlatList, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "expo-router";
 import { router, useLocalSearchParams } from "expo-router";
 
 import { assetsCatalog } from "../src/constants/assetsCatalog";
@@ -33,7 +32,6 @@ function getAssetTypeLabel(type: string, t: any) {
 }
 
 export default function AddAssetScreen() {
-  const router = useRouter();
   const { assetId } = useLocalSearchParams<{ assetId?: string }>();
 
   const assets = useFinanceStore((state) => state.assets);
@@ -104,11 +102,6 @@ export default function AddAssetScreen() {
   const isManualType = isDepositType;
 
   function handleSave() {
-  const quantityValue = parseLocaleNumber(quantity);
-
-  if (!quantityValue || quantityValue <= 0) {
-    return;
-  }
     const parsedQuantity = parseLocaleNumber(quantity);
     const parsedRate = rate ? parseLocaleNumber(rate) : 0;
 
@@ -264,7 +257,7 @@ export default function AddAssetScreen() {
                   onPress={() => setSelectedAsset(item)}
                 >
                   <Text style={styles.assetText}>
-                    {item.symbol} â€” {item.name}
+                    {item.symbol} — {item.name}
                   </Text>
                 </Pressable>
               )}
@@ -319,7 +312,7 @@ export default function AddAssetScreen() {
         {selectedAsset && !isDepositType && (
           <>
             <Text style={styles.selected}>
-              {selectedAsset.symbol} â€” {selectedAsset.name}
+              {selectedAsset.symbol} — {selectedAsset.name}
             </Text>
 
             <TextInput
@@ -472,6 +465,3 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 });
-
-
-
