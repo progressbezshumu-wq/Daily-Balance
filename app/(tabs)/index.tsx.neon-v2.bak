@@ -6,18 +6,16 @@ import { useLiabilityStore } from "../../src/store/liabilityStore";
 import { useSettingsStore } from "../../src/store/settingsStore";
 
 const BG = "#050816";
-const CARD = "rgba(10, 14, 28, 0.78)";
-const CARD_STRONG = "rgba(10, 16, 32, 0.94)";
+const CARD = "rgba(9, 14, 28, 0.78)";
+const CARD_STRONG = "rgba(10, 16, 32, 0.92)";
 const BORDER = "rgba(96, 165, 250, 0.16)";
 const BORDER_SOFT = "rgba(148, 163, 184, 0.10)";
-const TEXT = "#EAF2FF";
+const TEXT = "#E6EEF8";
 const MUTED = "#7C8AA5";
 const ACCENT = "#3B82F6";
+const ACCENT_SOFT = "rgba(59, 130, 246, 0.18)";
 const POSITIVE = "#22C55E";
 const NEGATIVE = "#EF4444";
-const PINK = "#EC4899";
-const VIOLET = "#8B5CF6";
-const CYAN = "#22D3EE";
 
 type AppLanguage = "en" | "de" | "uk";
 
@@ -66,6 +64,7 @@ export default function OverviewScreen() {
   const t = useMemo(() => {
     if (language === "uk") {
       return {
+        screen: "Огляд",
         badge: "DAILY BALANCE",
         hero: "Чистий денний баланс",
         capital: "Капітал",
@@ -93,6 +92,7 @@ export default function OverviewScreen() {
 
     if (language === "de") {
       return {
+        screen: "Überblick",
         badge: "DAILY BALANCE",
         hero: "Netto-Tagesbilanz",
         capital: "Kapital",
@@ -113,12 +113,13 @@ export default function OverviewScreen() {
         warning: "Achtung",
         strong: "Starke Position",
         noteGood: "Die Bilanz ist positiv. Das System arbeitet im Plus.",
-        noteMid: "Die Bilanz liegt nahe null. Ein kleiner Puffer wäre gut.",
+        noteMid: "Die Bilanz liegt nahe null. Ein kleiner Sicherheitspuffer wäre gut.",
         noteBad: "Die Bilanz ist negativ. Der jährliche Abfluss sollte reduziert werden.",
       };
     }
 
     return {
+      screen: "Overview",
       badge: "DAILY BALANCE",
       hero: "Net daily balance",
       capital: "Capital",
@@ -220,14 +221,8 @@ export default function OverviewScreen() {
     <View style={styles.root}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      <View style={[styles.bgOrb, styles.bgBlue]} />
-      <View style={[styles.bgOrb, styles.bgGreen]} />
-      <View style={[styles.bgOrb, styles.bgPink]} />
-      <View style={[styles.bgOrb, styles.bgViolet]} />
-      <View style={[styles.bgLine, styles.bgLineA]} />
-      <View style={[styles.bgLine, styles.bgLineB]} />
-      <View style={[styles.gridOverlay, styles.gridHorizontal]} />
-      <View style={[styles.gridOverlay, styles.gridVertical]} />
+      <View style={styles.bgGlowTop} />
+      <View style={styles.bgGlowBottom} />
 
       <ScrollView
         contentContainerStyle={styles.content}
@@ -236,7 +231,6 @@ export default function OverviewScreen() {
         <View style={styles.heroCard}>
           <View style={styles.heroGlowA} />
           <View style={styles.heroGlowB} />
-          <View style={styles.heroGlowC} />
 
           <View style={styles.heroTopRow}>
             <Text style={styles.badge}>{t.badge}</Text>
@@ -280,18 +274,13 @@ export default function OverviewScreen() {
           </View>
         </View>
 
-        <View style={styles.capitalCard}>
-          <View style={styles.capitalGlowBlue} />
-          <View style={styles.capitalGlowGreen} />
-          <View style={styles.capitalGlowPink} />
-          <Text style={styles.capitalLabel}>{t.capital}</Text>
-          <Text style={styles.capitalValue}>
-            {formatMoney(metrics.netWorth, displayCurrency)}
-          </Text>
-          <Text style={styles.capitalSub}>{t.financialBase}</Text>
-        </View>
-
         <View style={styles.grid}>
+          <View style={[styles.statCard, styles.gridLarge]}>
+            <Text style={styles.statLabel}>{t.capital}</Text>
+            <Text style={styles.statValue}>{formatMoney(metrics.netWorth, displayCurrency)}</Text>
+            <Text style={styles.statSub}>{t.financialBase}</Text>
+          </View>
+
           <View style={styles.statCard}>
             <Text style={styles.statLabel}>{t.passiveIncome}</Text>
             <Text style={[styles.statValue, styles.greenText]}>
@@ -326,7 +315,6 @@ export default function OverviewScreen() {
         </View>
 
         <View style={styles.panel}>
-          <View style={styles.panelGlow} />
           <View style={styles.panelHeader}>
             <Text style={styles.panelTitle}>{t.breakdown}</Text>
             <Text style={styles.panelHint}>{t.yearly}</Text>
@@ -347,24 +335,23 @@ export default function OverviewScreen() {
               <View style={[styles.lineDot, { backgroundColor: ACCENT }]} />
               <Text style={styles.dataRowLabel}>{t.deposits}</Text>
             </View>
-            <Text style={styles.dataRowValue}>
+            <Text style={[styles.dataRowValue, { color: TEXT }]}>
               {formatMoney(metrics.depositIncome, displayCurrency)}
             </Text>
           </View>
 
           <View style={styles.dataRow}>
             <View style={styles.dataRowLeft}>
-              <View style={[styles.lineDot, { backgroundColor: CYAN }]} />
+              <View style={[styles.lineDot, { backgroundColor: "#60A5FA" }]} />
               <Text style={styles.dataRowLabel}>{t.other}</Text>
             </View>
-            <Text style={styles.dataRowValue}>
+            <Text style={[styles.dataRowValue, { color: TEXT }]}>
               {formatMoney(metrics.otherPassiveIncome, displayCurrency)}
             </Text>
           </View>
         </View>
 
         <View style={styles.noteCard}>
-          <View style={styles.noteGlow} />
           <Text style={styles.noteTitle}>{t.status}</Text>
           <Text style={styles.noteText}>{noteText}</Text>
         </View>
@@ -378,123 +365,55 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: BG,
   },
-
-  bgOrb: {
+  bgGlowTop: {
     position: "absolute",
+    top: -120,
+    right: -80,
+    width: 260,
+    height: 260,
     borderRadius: 999,
+    backgroundColor: "rgba(59,130,246,0.16)",
   },
-  bgBlue: {
-    top: -110,
-    right: -70,
-    width: 250,
-    height: 250,
-    backgroundColor: "rgba(59,130,246,0.15)",
-  },
-  bgGreen: {
-    top: 220,
-    left: -100,
-    width: 200,
-    height: 200,
-    backgroundColor: "rgba(34,197,94,0.09)",
-  },
-  bgPink: {
-    bottom: 180,
-    right: -70,
-    width: 220,
-    height: 220,
-    backgroundColor: "rgba(236,72,153,0.08)",
-  },
-  bgViolet: {
-    bottom: 60,
-    left: -80,
-    width: 230,
-    height: 230,
-    backgroundColor: "rgba(139,92,246,0.08)",
-  },
-  bgLine: {
+  bgGlowBottom: {
     position: "absolute",
-    height: 1,
+    bottom: 120,
+    left: -120,
+    width: 260,
+    height: 260,
     borderRadius: 999,
+    backgroundColor: "rgba(37,99,235,0.10)",
   },
-  bgLineA: {
-    top: 170,
-    left: 30,
-    right: 60,
-    backgroundColor: "rgba(34,211,238,0.12)",
-  },
-  bgLineB: {
-    top: 520,
-    left: 70,
-    right: 20,
-    backgroundColor: "rgba(236,72,153,0.10)",
-  },
-  gridOverlay: {
-    position: "absolute",
-    opacity: 0.06,
-  },
-  gridHorizontal: {
-    top: 0,
-    bottom: 0,
-    left: 0,
-    right: 0,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: "#60A5FA",
-  },
-  gridVertical: {
-    top: 0,
-    bottom: 0,
-    left: 40,
-    width: 1,
-    backgroundColor: "#60A5FA",
-  },
-
   content: {
     paddingHorizontal: 18,
     paddingTop: 18,
     paddingBottom: 120,
     gap: 14,
   },
-
   heroCard: {
     backgroundColor: CARD,
-    borderRadius: 28,
+    borderRadius: 26,
     borderWidth: 1,
     borderColor: BORDER,
     padding: 18,
     overflow: "hidden",
-    shadowColor: ACCENT,
-    shadowOpacity: 0.18,
-    shadowRadius: 22,
-    shadowOffset: { width: 0, height: 12 },
-    elevation: 10,
   },
   heroGlowA: {
     position: "absolute",
     top: -60,
-    right: -30,
-    width: 160,
-    height: 160,
+    right: -40,
+    width: 180,
+    height: 180,
     borderRadius: 999,
     backgroundColor: "rgba(59,130,246,0.22)",
   },
   heroGlowB: {
     position: "absolute",
-    bottom: -55,
-    left: -30,
-    width: 140,
-    height: 140,
+    bottom: -70,
+    left: -50,
+    width: 160,
+    height: 160,
     borderRadius: 999,
-    backgroundColor: "rgba(139,92,246,0.14)",
-  },
-  heroGlowC: {
-    position: "absolute",
-    top: 70,
-    left: 140,
-    width: 100,
-    height: 100,
-    borderRadius: 999,
-    backgroundColor: "rgba(34,197,94,0.08)",
+    backgroundColor: "rgba(30,64,175,0.16)",
   },
   heroTopRow: {
     flexDirection: "row",
@@ -503,7 +422,7 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   badge: {
-    color: "#A5D8FF",
+    color: "#93C5FD",
     fontSize: 11,
     fontWeight: "700",
     letterSpacing: 1.8,
@@ -515,7 +434,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
-    backgroundColor: "rgba(12, 18, 34, 0.78)",
+    backgroundColor: "rgba(15, 23, 42, 0.58)",
     borderWidth: 1,
     borderColor: BORDER_SOFT,
   },
@@ -588,71 +507,6 @@ const styles = StyleSheet.create({
     height: "100%",
     backgroundColor: NEGATIVE,
   },
-
-  capitalCard: {
-    backgroundColor: "rgba(12, 18, 36, 0.92)",
-    borderRadius: 30,
-    borderWidth: 1,
-    borderColor: "rgba(96,165,250,0.22)",
-    padding: 20,
-    overflow: "hidden",
-    shadowColor: "#60A5FA",
-    shadowOpacity: 0.28,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 12 },
-    elevation: 12,
-  },
-  capitalGlowBlue: {
-    position: "absolute",
-    top: -70,
-    right: -30,
-    width: 180,
-    height: 180,
-    borderRadius: 999,
-    backgroundColor: "rgba(59,130,246,0.24)",
-  },
-  capitalGlowGreen: {
-    position: "absolute",
-    bottom: -70,
-    left: -30,
-    width: 170,
-    height: 170,
-    borderRadius: 999,
-    backgroundColor: "rgba(34,197,94,0.12)",
-  },
-  capitalGlowPink: {
-    position: "absolute",
-    top: 50,
-    left: 120,
-    width: 120,
-    height: 120,
-    borderRadius: 999,
-    backgroundColor: "rgba(236,72,153,0.08)",
-  },
-  capitalLabel: {
-    color: "#D6E8FF",
-    fontSize: 12,
-    fontWeight: "700",
-    letterSpacing: 2,
-    textTransform: "uppercase",
-    marginBottom: 10,
-  },
-  capitalValue: {
-    color: "#FFFFFF",
-    fontSize: 30,
-    lineHeight: 34,
-    fontWeight: "900",
-    marginBottom: 8,
-    textShadowColor: "rgba(96,165,250,0.25)",
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 18,
-  },
-  capitalSub: {
-    color: "#B7C7DE",
-    fontSize: 12,
-    fontWeight: "500",
-  },
-
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -665,11 +519,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: BORDER_SOFT,
     padding: 14,
-    shadowColor: "#0F172A",
-    shadowOpacity: 0.18,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 6,
+  },
+  gridLarge: {
+    width: "100%",
+    backgroundColor: "rgba(10, 16, 32, 0.86)",
+    borderColor: BORDER,
   },
   statLabel: {
     color: MUTED,
@@ -697,28 +551,12 @@ const styles = StyleSheet.create({
   redText: {
     color: NEGATIVE,
   },
-
   panel: {
     backgroundColor: CARD,
     borderRadius: 24,
     borderWidth: 1,
     borderColor: BORDER_SOFT,
     padding: 16,
-    overflow: "hidden",
-    shadowColor: VIOLET,
-    shadowOpacity: 0.12,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 7,
-  },
-  panelGlow: {
-    position: "absolute",
-    right: -40,
-    top: -40,
-    width: 120,
-    height: 120,
-    borderRadius: 999,
-    backgroundColor: "rgba(139,92,246,0.08)",
   },
   panelHeader: {
     flexDirection: "row",
@@ -760,32 +598,15 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   dataRowValue: {
-    color: TEXT,
     fontSize: 14,
     fontWeight: "800",
   },
-
   noteCard: {
-    backgroundColor: "rgba(19, 26, 48, 0.86)",
+    backgroundColor: ACCENT_SOFT,
     borderRadius: 22,
     borderWidth: 1,
-    borderColor: "rgba(96,165,250,0.16)",
+    borderColor: BORDER,
     padding: 15,
-    overflow: "hidden",
-    shadowColor: PINK,
-    shadowOpacity: 0.10,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 6,
-  },
-  noteGlow: {
-    position: "absolute",
-    width: 120,
-    height: 120,
-    borderRadius: 999,
-    right: -30,
-    bottom: -50,
-    backgroundColor: "rgba(236,72,153,0.08)",
   },
   noteTitle: {
     color: "#BFDBFE",

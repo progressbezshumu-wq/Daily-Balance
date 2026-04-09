@@ -1,244 +1,70 @@
-import { View, Text, StyleSheet, Dimensions, ScrollView, RefreshControl, Pressable, Alert } from "react-native";
-import { useState, useEffect, useMemo } from "react";
+import React from "react";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Svg, { Circle, Path } from "react-native-svg";
-
 import { useFinanceStore } from "../../src/store/financeStore";
 import { useSettingsStore } from "../../src/store/settingsStore";
-import { t } from "../../src/i18n";
-import { fetchLiveRates, convertCurrency } from "../../src/utils/currency";
 
-const screenWidth = Dimensions.get("window").width;
-const chartSize = Math.min(screenWidth - 96, 240);
-const radius = chartSize / 2;
-
-const palette = [
-  "#4F7CFF",
-  "#4FC3F7",
-  "#A855F7",
-  "#22C55E",
-  "#F59E0B",
-  "#EF4444",
-  "#14B8A6",
-  "#F472B6",
-  "#84CC16",
-  "#8B5CF6",
-];
-
-function toSafeNumber(value: unknown) {
-  const num = Number(value);
-  return Number.isFinite(num) ? num : 0;
+function toSafeNumber(v: unknown): number {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
 }
 
-function getStableColor(key: string) {
-  let hash = 0;
-  for (let i = 0; i < key.length; i += 1) {
-    hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
-  }
-  return palette[hash % palette.length];
-}
-
-function getAllocationHelp(language: string) {
-  if (language === "de") {
-    return "Zeigt, wie dein Portfolio auf deine Assets verteilt ist.";
-  }
-
-  if (language === "uk") {
-    return "???????, ?? ???? ???? ???????? ???????????? ??? ????????.";
-  }
-
-  return "Shows how your portfolio is distributed across your assets.";
-}
-
-function polarToCartesian(cx: number, cy: number, r: number, angleInDegrees: number) {
-  const angleInRadians = ((angleInDegrees - 90) * Math.PI) / 180.0;
-  return {
-    x: cx + r * Math.cos(angleInRadians),
-    y: cy + r * Math.sin(angleInRadians),
-  };
-}
-
-function describeSector(cx: number, cy: number, r: number, startAngle: number, endAngle: number) {
-  if (endAngle - startAngle >= 359.999) {
-    return null;
-  }
-
-  const start = polarToCartesian(cx, cy, r, endAngle);
-  const end = polarToCartesian(cx, cy, r, startAngle);
-  const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
-
-  return [
-    "M", cx, cy,
-    "L", start.x, start.y,
-    "A", r, r, 0, largeArcFlag, 0, end.x, end.y,
-    "Z",
-  ].join(" ");
+function format(v: number, c: string) {
+  return `${v.toFixed(2)} ${c}`;
 }
 
 export default function PortfolioScreen() {
-  const assets = useFinanceStore((state) => state.assets);
-  const language = useSettingsStore((state) => state.language) ?? "en";
-  const displayCurrency = useSettingsStore((state) => state.displayCurrency);
+  const assets = useFinanceStore((s) => s.assets);
+  const currency = useSettingsStore((s) => s.displayCurrency) ?? "EUR";
 
-  const [rates, setRates] = useState<any>(null);
-  const [refreshing, setRefreshing] = useState(false);
+  const portfolioValue = assets.reduce((sum, a) => {
+    return sum + toSafeNumber(a.quantity) * toSafeNumber(a.currentPrice);
+  }, 0);
 
-  useEffect(() => {
-    fetchLiveRates().then(setRates);
-  }, []);
+  const buyValue = assets.reduce((sum, a) => {
+    return sum + toSafeNumber(a.quantity) * toSafeNumber(a.buyPrice);
+  }, 0);
 
-  const portfolioData = useMemo(() => {
-    let portfolioValue = 0;
-
-    const groupedMap: Record<
-      string,
-      {
-        key: string;
-        label: string;
-        value: number;
-        color: string;
-      }
-    > = {};
-
-    for (const asset of assets) {
-      const quantity = toSafeNumber(asset.quantity);
-      const currentPrice = toSafeNumber(asset.currentPrice ?? asset.buyPrice);
-      const currentValue = quantity * currentPrice;
-
-      const convertedValue = rates
-        ? convertCurrency(currentValue, asset.currency, displayCurrency, rates)
-        : currentValue;
-
-      portfolioValue += convertedValue;
-
-      const symbol = (asset.symbol || "").trim();
-      const name = (asset.name || "").trim();
-      const categoryLabel = t(language, asset.category as any);
-      const groupKey = symbol || name || asset.category || "asset";
-      const label = symbol || name || categoryLabel;
-
-      if (!groupedMap[groupKey]) {
-        groupedMap[groupKey] = {
-          key: groupKey,
-          label,
-          value: 0,
-          color: getStableColor(groupKey),
-        };
-      }
-
-      groupedMap[groupKey].value += convertedValue;
-    }
-
-    const allocationEntries = Object.values(groupedMap)
-      .filter((item) => item.value > 0)
-      .sort((a, b) => b.value - a.value)
-      .map((item) => ({
-        ...item,
-        percent: portfolioValue > 0 ? (item.value / portfolioValue) * 100 : 0,
-      }));
-
-    return {
-      portfolioValue,
-      allocationEntries,
-    };
-  }, [assets, rates, displayCurrency, language]);
-
-  const { portfolioValue, allocationEntries } = portfolioData;
-
-  function handleRefresh() {
-    setRefreshing(true);
-    fetchLiveRates().then((r) => {
-      setRates(r);
-      setRefreshing(false);
-    });
-  }
-
-  let currentAngle = 0;
+  const profit = portfolioValue - buyValue;
+  const profitColor = profit >= 0 ? "#22C55E" : "#EF4444";
 
   return (
     <SafeAreaView style={styles.safe}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
-        showsVerticalScrollIndicator={false}
-      >
-        <Text style={styles.title}>{t(language, "portfolio")}</Text>
+      <ScrollView contentContainerStyle={styles.content}>
+        <Text style={styles.title}>Portfolio</Text>
 
-        <View style={styles.heroCard}>
-          <Text style={styles.heroLabel}>{t(language, "currentValue")}</Text>
-          <Text style={styles.heroValue}>
-            {portfolioValue.toFixed(2)} {displayCurrency}
-          </Text>
+        <View style={styles.card}>
+          <Text style={styles.label}>TOTAL VALUE</Text>
+          <Text style={styles.value}>{format(portfolioValue, currency)}</Text>
         </View>
 
-        <View style={styles.sectionCard}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>{t(language, "portfolioAllocation")}</Text>
-
-            <Pressable
-              style={styles.helpButton}
-              onPress={() => Alert.alert(t(language, "help"), getAllocationHelp(language))}
-            >
-              <Text style={styles.helpButtonText}>?</Text>
-            </Pressable>
+        <View style={styles.row}>
+          <View style={styles.cardSmall}>
+            <Text style={styles.label}>INVESTED</Text>
+            <Text style={styles.valueSmall}>{format(buyValue, currency)}</Text>
           </View>
 
-          {allocationEntries.length > 0 ? (
-            <>
-              <View style={styles.chartWrap}>
-                <Svg width={chartSize} height={chartSize}>
-                  <Circle cx={radius} cy={radius} r={radius} fill="#2a3140" />
+          <View style={styles.cardSmall}>
+            <Text style={styles.label}>P/L</Text>
+            <Text style={[styles.valueSmall, { color: profitColor }]}>
+              {format(profit, currency)}
+            </Text>
+          </View>
+        </View>
 
-                  {allocationEntries.map((item, index) => {
-                    const sweepAngle =
-                      index === allocationEntries.length - 1
-                        ? 360 - currentAngle
-                        : (item.percent / 100) * 360;
+        <View style={styles.card}>
+          <Text style={styles.label}>ASSETS</Text>
 
-                    const startAngle = currentAngle;
-                    const endAngle = currentAngle + sweepAngle;
-                    currentAngle = endAngle;
+          {assets.map((a, i) => {
+            const value = toSafeNumber(a.quantity) * toSafeNumber(a.currentPrice);
 
-                    const path = describeSector(radius, radius, radius, startAngle, endAngle);
-
-                    if (!path) {
-                      return (
-                        <Circle
-                          key={item.key}
-                          cx={radius}
-                          cy={radius}
-                          r={radius}
-                          fill={item.color}
-                        />
-                      );
-                    }
-
-                    return <Path key={item.key} d={path} fill={item.color} />;
-                  })}
-                </Svg>
+            return (
+              <View key={`${a.id ?? a.symbol}-${i}`} style={styles.assetRow}>
+                <Text style={styles.assetName}>{a.name}</Text>
+                <Text style={styles.assetValue}>{format(value, currency)}</Text>
               </View>
-
-              <View style={styles.allocationList}>
-                {allocationEntries.map((item) => (
-                  <View key={item.key} style={styles.allocationRow}>
-                    <View style={styles.allocationLeft}>
-                      <View style={[styles.colorDot, { backgroundColor: item.color }]} />
-                      <Text style={styles.allocationName}>{item.label}</Text>
-                    </View>
-
-                    <View style={styles.allocationRight}>
-                      <Text style={styles.allocationPercent}>{item.percent.toFixed(1)}%</Text>
-                      <Text style={styles.allocationAmount}>
-                        {item.value.toFixed(2)} {displayCurrency}
-                      </Text>
-                    </View>
-                  </View>
-                ))}
-              </View>
-            </>
-          ) : (
-            <Text style={styles.emptyText}>{t(language, "noAssetsYet")}</Text>
-          )}
+            );
+          })}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -248,115 +74,61 @@ export default function PortfolioScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: "#0f1218",
+    backgroundColor: "#060912",
   },
-  scrollContent: {
+  content: {
     padding: 20,
-    paddingBottom: 32,
+    gap: 16,
   },
   title: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: "white",
-    marginBottom: 20,
-  },
-  heroCard: {
-    backgroundColor: "#1b2130",
-    borderRadius: 18,
-    padding: 20,
-    marginBottom: 16,
-  },
-  heroLabel: {
-    color: "#8b93a7",
-    fontSize: 14,
-    marginBottom: 8,
-  },
-  heroValue: {
-    color: "#ffffff",
-    fontSize: 34,
+    fontSize: 32,
     fontWeight: "800",
-    letterSpacing: 0.4,
+    color: "#F8FAFC",
   },
-  sectionCard: {
-    backgroundColor: "#1b2130",
-    borderRadius: 18,
+  card: {
+    backgroundColor: "#0b1220",
+    borderRadius: 20,
     padding: 18,
+    borderWidth: 1,
+    borderColor: "#1e293b",
   },
-  sectionHeader: {
+  row: {
     flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 12,
-  },
-  sectionTitle: {
-    color: "white",
-    fontSize: 18,
-    fontWeight: "700",
-  },
-  helpButton: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: "#151b26",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  helpButtonText: {
-    color: "#8b93a7",
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  chartWrap: {
-    width: "100%",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 16,
-  },
-  allocationList: {
-    gap: 10,
-    marginTop: 4,
-  },
-  allocationRow: {
-    backgroundColor: "#151b26",
-    borderRadius: 14,
-    padding: 14,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
     gap: 12,
   },
-  allocationLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
+  cardSmall: {
     flex: 1,
+    backgroundColor: "#0b1220",
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#1e293b",
   },
-  colorDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 999,
+  label: {
+    fontSize: 12,
+    color: "#94A3B8",
+    marginBottom: 8,
   },
-  allocationName: {
-    color: "white",
-    fontSize: 15,
-    fontWeight: "600",
-    flexShrink: 1,
+  value: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: "#F8FAFC",
   },
-  allocationRight: {
-    alignItems: "flex-end",
-  },
-  allocationPercent: {
-    color: "white",
-    fontSize: 14,
+  valueSmall: {
+    fontSize: 18,
     fontWeight: "700",
-    marginBottom: 2,
+    color: "#F8FAFC",
   },
-  allocationAmount: {
-    color: "#8b93a7",
-    fontSize: 13,
+  assetRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 10,
   },
-  emptyText: {
-    color: "#8b93a7",
-    fontSize: 14,
+  assetName: {
+    color: "#E5E7EB",
+  },
+  assetValue: {
+    color: "#E5E7EB",
+    fontWeight: "600",
   },
 });

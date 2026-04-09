@@ -1,86 +1,84 @@
-﻿import { router } from "expo-router";
+import React from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-
-import { t } from "../../src/i18n";
+import { LinearGradient } from "expo-linear-gradient";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import { useSettingsStore } from "../../src/store/settingsStore";
 
-type AppLanguage = "en" | "de" | "uk";
-
-function getCurrentLanguageLabel(language: AppLanguage) {
-  if (language === "de") return "Deutsch";
-  if (language === "uk") return "Українська";
-  return "English";
-}
-
-function getDefaultCurrencyTitle(language: AppLanguage) {
-  if (language === "de") return "Standardwährung";
-  if (language === "uk") return "Базова валюта";
-  return "Default currency";
-}
-
-function getCurrentCurrencyTitle(language: AppLanguage) {
-  if (language === "de") return "Aktuelle Währung";
-  if (language === "uk") return "Поточна валюта";
-  return "Current currency";
-}
-
-function getFeedbackTitle(language: AppLanguage) {
-  if (language === "de") return "Feedback";
-  if (language === "uk") return "Зворотний звязок";
-  return "Feedback";
-}
-
-function getFeedbackDescription(language: AppLanguage) {
-  if (language === "de") return "Problem melden oder Idee senden.";
-  if (language === "uk") return "Повідомити про помилку або надіслати ідею.";
-  return "Report a problem or share an idea.";
-}
-
-function getAboutAppTitle(language: AppLanguage) {
-  if (language === "de") return "Über die App";
-  if (language === "uk") return "Про додаток";
-  return "About app";
-}
-
-function getAboutAppDescription(language: AppLanguage) {
-  if (language === "de") return "Daily Balance hilft dir, Vermögen und Verbindlichkeiten zu verfolgen.";
-  if (language === "uk") return "Daily Balance допомагає відстежувати активи та пасиви.";
-  return "Daily Balance helps you track assets and liabilities.";
-}
-
 export default function SettingsScreen() {
-  const language = useSettingsStore((state) => (state.language ?? "en") as AppLanguage);
-  const displayCurrency = useSettingsStore((state) => state.displayCurrency);
+  const language = useSettingsStore((state) => state.language) ?? "en";
+  const displayCurrency = useSettingsStore((state) => state.displayCurrency) ?? "EUR";
+
+  const copy =
+    language === "uk"
+      ? {
+          title: "Налаштування",
+          subtitle: "Мова, валюта та основні параметри",
+          language: "Мова",
+          currency: "Валюта",
+          languageSub: "Змінити мову інтерфейсу",
+          currencySub: "Основна валюта відображення",
+        }
+      : language === "de"
+      ? {
+          title: "Einstellungen",
+          subtitle: "Sprache, Währung und Hauptparameter",
+          language: "Sprache",
+          currency: "Währung",
+          languageSub: "Sprache der Oberfläche ändern",
+          currencySub: "Hauptanzeigewährung",
+        }
+      : {
+          title: "Settings",
+          subtitle: "Language, currency and main parameters",
+          language: "Language",
+          currency: "Currency",
+          languageSub: "Change app language",
+          currencySub: "Main display currency",
+        };
 
   return (
     <SafeAreaView style={styles.safe}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.container}>
-          <Text style={styles.title}>{t(language, "settings")}</Text>
+      <LinearGradient colors={["#050816", "#0A1020", "#0C1425"]} style={StyleSheet.absoluteFill} />
 
-          <Pressable onPress={() => router.push("/change-language")} style={styles.card}>
-            <Text style={styles.cardTitle}>{t(language, "changeLanguage")}</Text>
-            <Text style={styles.cardSubtext}>
-              {t(language, "currentLanguage")}: {getCurrentLanguageLabel(language)}
-            </Text>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View>
+          </View>
+
+        <View style={styles.sectionCard}>
+          <Pressable style={styles.rowCard} onPress={() => router.push("/change-language")}>
+            <View style={styles.left}>
+              <View style={styles.iconWrap}>
+                <MaterialCommunityIcons name="translate" size={20} color="#60A5FA" />
+              </View>
+              <View>
+                <Text style={styles.rowTitle}>{copy.language}</Text>
+                <Text style={styles.rowSub}>{copy.languageSub}</Text>
+              </View>
+            </View>
+
+            <View style={styles.right}>
+              <Text style={styles.valueText}>{language.toUpperCase()}</Text>
+              <MaterialCommunityIcons name="chevron-right" size={20} color="#94A3B8" />
+            </View>
           </Pressable>
 
-          <Pressable onPress={() => router.push("/change-currency")} style={styles.card}>
-            <Text style={styles.cardTitle}>{getDefaultCurrencyTitle(language)}</Text>
-            <Text style={styles.cardSubtext}>
-              {getCurrentCurrencyTitle(language)}: {displayCurrency}
-            </Text>
-          </Pressable>
+          <Pressable style={styles.rowCard} onPress={() => router.push("/change-currency")}>
+            <View style={styles.left}>
+              <View style={styles.iconWrap}>
+                <MaterialCommunityIcons name="currency-eur" size={20} color="#22C55E" />
+              </View>
+              <View>
+                <Text style={styles.rowTitle}>{copy.currency}</Text>
+                <Text style={styles.rowSub}>{copy.currencySub}</Text>
+              </View>
+            </View>
 
-          <Pressable onPress={() => router.push("/feedback")} style={styles.card}>
-            <Text style={styles.cardTitle}>{getFeedbackTitle(language)}</Text>
-            <Text style={styles.cardSubtext}>{getFeedbackDescription(language)}</Text>
-          </Pressable>
-
-          <Pressable onPress={() => router.push("/about-app")} style={styles.card}>
-            <Text style={styles.cardTitle}>{getAboutAppTitle(language)}</Text>
-            <Text style={styles.cardSubtext}>{getAboutAppDescription(language)}</Text>
+            <View style={styles.right}>
+              <Text style={styles.valueText}>{displayCurrency}</Text>
+              <MaterialCommunityIcons name="chevron-right" size={20} color="#94A3B8" />
+            </View>
           </Pressable>
         </View>
       </ScrollView>
@@ -89,11 +87,75 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#0f1115" },
-  scrollContent: { flexGrow: 1, padding: 24 },
-  container: { flex: 1, gap: 16 },
-  title: { color: "white", fontSize: 28, fontWeight: "700", textAlign: "center", marginBottom: 16 },
-  card: { backgroundColor: "#1c2230", padding: 18, borderRadius: 16 },
-  cardTitle: { color: "white", fontSize: 18, fontWeight: "600" },
-  cardSubtext: { color: "#98a2b3", fontSize: 14, marginTop: 6, lineHeight: 20 },
+  safe: {
+    flex: 1,
+    backgroundColor: "#050816",
+  },
+  content: {
+    padding: 20,
+    paddingBottom: 150,
+    gap: 16,
+  },
+  title: {
+    fontSize: 34,
+    fontWeight: "800",
+    color: "#F8FAFC",
+  },
+  subtitle: {
+    marginTop: 6,
+    fontSize: 14,
+    color: "#94A3B8",
+  },
+  sectionCard: {
+    borderRadius: 24,
+    padding: 18,
+    backgroundColor: "rgba(15, 23, 42, 0.68)",
+    borderWidth: 1,
+    borderColor: "rgba(148,163,184,0.12)",
+  },
+  rowCard: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    borderRadius: 18,
+    padding: 14,
+    backgroundColor: "rgba(17, 24, 39, 0.70)",
+    borderWidth: 1,
+    borderColor: "rgba(148,163,184,0.10)",
+    marginBottom: 12,
+  },
+  left: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  right: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  iconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(59,130,246,0.12)",
+  },
+  rowTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#F8FAFC",
+  },
+  rowSub: {
+    marginTop: 2,
+    fontSize: 12,
+    color: "#94A3B8",
+  },
+  valueText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#E5E7EB",
+  },
 });

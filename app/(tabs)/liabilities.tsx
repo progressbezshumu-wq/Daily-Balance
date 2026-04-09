@@ -1,221 +1,266 @@
-﻿import { View, Text, StyleSheet, Pressable, ScrollView } from "react-native";
+import React from "react";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
-
+import { LinearGradient } from "expo-linear-gradient";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useLiabilityStore } from "../../src/store/liabilityStore";
 import { useSettingsStore } from "../../src/store/settingsStore";
-import { t } from "../../src/i18n";
 
-const FX: Record<string, number> = {
-  EUR: 1,
-  USD: 1.1,
-  UAH: 42,
-};
-
-function toSafeNumber(value: unknown) {
-  const num = Number(value);
-  return Number.isFinite(num) ? num : 0;
+function toSafeNumber(value: unknown): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
 }
 
-function convert(value: number, from: string | undefined, to: string | undefined) {
-  const fromRate = FX[from ?? "EUR"] ?? 1;
-  const toRate = FX[to ?? "EUR"] ?? 1;
-  const eurValue = value / fromRate;
-  return eurValue * toRate;
-}
-
-function getYearlyPayment(liability: any) {
-  const paymentAmount = toSafeNumber(liability?.paymentAmount);
-  const paymentPeriod = liability?.paymentPeriod;
-
-  if (paymentPeriod === "daily") return paymentAmount * 365;
-  if (paymentPeriod === "monthly") return paymentAmount * 12;
-  if (paymentPeriod === "yearly") return paymentAmount;
-
-  return toSafeNumber(liability?.yearlyPayment);
+function formatMoney(value: number, currency: string) {
+  return `${value.toFixed(2)} ${currency}`;
 }
 
 export default function LiabilitiesScreen() {
-  const liabilities = useLiabilityStore((state) => state.liabilities);
-  const deleteLiability = useLiabilityStore((state) => state.deleteLiability);
+  const liabilities = useLiabilityStore((state) => state.liabilities ?? []);
+  const currency = useSettingsStore((state) => state.displayCurrency) ?? "EUR";
   const language = useSettingsStore((state) => state.language) ?? "en";
-  const displayCurrency = useSettingsStore((state) => state.displayCurrency) ?? "EUR";
+
+  const copy =
+    language === "uk"
+      ? {
+          title: "Зобовʼязання",
+          subtitle: "Усі пасиви в одному місці",
+          total: "ЗАГАЛЬНЕ НАВАНТАЖЕННЯ",
+          yearly: "НА РІК",
+          monthly: "НА МІСЯЦЬ",
+          empty: "Поки зобовʼязань немає",
+        }
+      : language === "de"
+      ? {
+          title: "Verbindlichkeiten",
+          subtitle: "Alle Passiva an einem Ort",
+          total: "GESAMTBELASTUNG",
+          yearly: "PRO JAHR",
+          monthly: "PRO MONAT",
+          empty: "Noch keine Verbindlichkeiten",
+        }
+      : {
+          title: "Liabilities",
+          subtitle: "All obligations in one place",
+          total: "TOTAL LOAD",
+          yearly: "PER YEAR",
+          monthly: "PER MONTH",
+          empty: "No liabilities yet",
+        };
+
+  const yearlyTotal = liabilities.reduce((sum, item) => {
+    return sum + toSafeNumber((item as { yearlyPayment?: number }).yearlyPayment);
+  }, 0);
+
+  const monthlyTotal = yearlyTotal / 12;
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
-      <View style={styles.headerRow}>
-        <Text style={styles.title}>{t(language, "liabilities")}</Text>
+    <SafeAreaView style={styles.safe}>
+      <LinearGradient colors={["#050816", "#0A1020", "#0C1425"]} style={StyleSheet.absoluteFill} />
 
-        <Pressable
-          style={styles.addButton}
-          onPress={() => router.push("/add-liability")}
-        >
-          <Text style={styles.addButtonText}>{t(language, "addLiability")}</Text>
-        </Pressable>
-      </View>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View>
+          </View>
 
-      {liabilities.length === 0 ? (
-        <View style={styles.emptyWrap}>
-          <Text style={styles.emptyText}>{t(language, "noLiabilitiesYet")}</Text>
+        <View style={styles.heroCard}>
+          <View style={styles.heroGlow} />
+          <Text style={styles.heroLabel}>{copy.total}</Text>
+          <Text style={styles.heroValue}>{formatMoney(yearlyTotal, currency)}</Text>
+          <Text style={styles.heroSub}>{copy.yearly}</Text>
         </View>
-      ) : (
-        <ScrollView contentContainerStyle={styles.list}>
-          {liabilities.map((liability) => {
-            const paymentAmount = toSafeNumber(liability.paymentAmount);
-            const yearlyPayment = getYearlyPayment(liability);
 
-            const convertedPaymentAmount = convert(
-              paymentAmount,
-              liability.currency,
-              displayCurrency
-            );
+        <View style={styles.row}>
+          <View style={styles.smallCard}>
+            <Text style={styles.smallLabel}>{copy.yearly}</Text>
+            <Text style={styles.smallValue}>{formatMoney(yearlyTotal, currency)}</Text>
+          </View>
 
-            const convertedYearlyPayment = convert(
-              yearlyPayment,
-              liability.currency,
-              displayCurrency
-            );
+          <View style={styles.smallCard}>
+            <Text style={styles.smallLabel}>{copy.monthly}</Text>
+            <Text style={styles.smallValue}>{formatMoney(monthlyTotal, currency)}</Text>
+          </View>
+        </View>
 
-            return (
-              <View key={liability.id} style={styles.card}>
-                <Text style={styles.name}>{liability.name}</Text>
+        <View style={styles.sectionCard}>
+          {liabilities.length === 0 ? (
+            <Text style={styles.emptyText}>{copy.empty}</Text>
+          ) : (
+            liabilities.map((item, index) => {
+              const yearly = toSafeNumber((item as { yearlyPayment?: number }).yearlyPayment);
+              const amount = toSafeNumber((item as { amount?: number }).amount);
+              const title =
+                (item as { name?: string }).name || `Liability ${index + 1}`;
 
-                <Text style={styles.detail}>
-                  {t(language, "paymentAmount")}:{" "}
-                  {convertedPaymentAmount.toFixed(2)} {displayCurrency}
-                </Text>
+              return (
+                <View key={`${title}-${index}`} style={styles.itemCard}>
+                  <View style={styles.itemTop}>
+                    <View style={styles.itemLeft}>
+                      <View style={styles.iconWrap}>
+                        <MaterialCommunityIcons
+                          name="credit-card-outline"
+                          size={20}
+                          color="#F87171"
+                        />
+                      </View>
 
-                <Text style={styles.detail}>
-                  {t(language, "paymentPeriod")}:{" "}
-                  {t(language, liability.paymentPeriod)}
-                </Text>
+                      <View>
+                        <Text style={styles.itemTitle}>{title}</Text>
+                        <Text style={styles.itemMeta}>
+                          {formatMoney(amount, currency)}
+                        </Text>
+                      </View>
+                    </View>
 
-                <Text style={styles.detail}>
-                  {t(language, "yearlyPayment")}:{" "}
-                  {convertedYearlyPayment.toFixed(2)} {displayCurrency}
-                </Text>
-
-                <View style={styles.actionsRow}>
-                  <Pressable
-                    style={styles.editButton}
-                    onPress={() =>
-                      router.push({
-                        pathname: "/add-liability",
-                        params: { liabilityId: liability.id },
-                      })
-                    }
-                  >
-                    <Text style={styles.actionButtonText}>{t(language, "edit")}</Text>
-                  </Pressable>
-
-                  <Pressable
-                    style={styles.deleteButton}
-                    onPress={() => deleteLiability(liability.id)}
-                  >
-                    <Text style={styles.actionButtonText}>{t(language, "delete")}</Text>
-                  </Pressable>
+                    <View style={styles.itemRight}>
+                      <Text style={styles.itemValue}>{formatMoney(yearly, currency)}</Text>
+                      <Text style={styles.itemSub}>{copy.yearly}</Text>
+                    </View>
+                  </View>
                 </View>
-              </View>
-            );
-          })}
-        </ScrollView>
-      )}
+              );
+            })
+          )}
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safe: {
     flex: 1,
-    backgroundColor: "#0f1218",
-    paddingHorizontal: 20,
+    backgroundColor: "#050816",
   },
-
-  headerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 20,
-    paddingTop: 8,
+  content: {
+    padding: 20,
+    paddingBottom: 150,
+    gap: 16,
   },
-
   title: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: "white",
+    fontSize: 34,
+    fontWeight: "800",
+    color: "#F8FAFC",
   },
-
-  addButton: {
-    backgroundColor: "#2563eb",
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 10,
+  subtitle: {
+    marginTop: 6,
+    fontSize: 14,
+    color: "#94A3B8",
   },
-
-  addButtonText: {
-    color: "white",
-    fontWeight: "600",
+  heroCard: {
+    position: "relative",
+    overflow: "hidden",
+    borderRadius: 28,
+    padding: 22,
+    backgroundColor: "rgba(17, 24, 39, 0.72)",
+    borderWidth: 1,
+    borderColor: "rgba(248,113,113,0.16)",
   },
-
-  emptyWrap: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+  heroGlow: {
+    position: "absolute",
+    top: -24,
+    right: -24,
+    width: 130,
+    height: 130,
+    borderRadius: 65,
+    backgroundColor: "rgba(248,113,113,0.10)",
   },
-
-  emptyText: {
-    color: "#8b93a7",
-    fontSize: 16,
-  },
-
-  list: {
-    paddingBottom: 20,
-  },
-
-  card: {
-    backgroundColor: "#1b2130",
-    padding: 18,
-    borderRadius: 16,
-    marginBottom: 14,
-  },
-
-  name: {
-    color: "white",
-    fontSize: 18,
-    fontWeight: "700",
+  heroLabel: {
+    fontSize: 12,
+    letterSpacing: 1.8,
+    color: "#94A3B8",
     marginBottom: 12,
   },
-
-  detail: {
-    color: "#c9d1d9",
+  heroValue: {
+    fontSize: 34,
+    fontWeight: "800",
+    color: "#F87171",
+  },
+  heroSub: {
+    marginTop: 6,
     fontSize: 14,
-    marginBottom: 6,
+    color: "#CBD5E1",
   },
-
-  actionsRow: {
+  row: {
     flexDirection: "row",
-    marginTop: 12,
+    gap: 12,
   },
-
-  editButton: {
-    alignSelf: "flex-start",
-    backgroundColor: "#1d4ed8",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    marginRight: 10,
+  smallCard: {
+    flex: 1,
+    borderRadius: 22,
+    padding: 16,
+    backgroundColor: "rgba(15, 23, 42, 0.68)",
+    borderWidth: 1,
+    borderColor: "rgba(148,163,184,0.12)",
   },
-
-  deleteButton: {
-    alignSelf: "flex-start",
-    backgroundColor: "#7f1d1d",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 10,
+  smallLabel: {
+    fontSize: 12,
+    color: "#94A3B8",
+    marginBottom: 8,
   },
-
-  actionButtonText: {
-    color: "white",
-    fontWeight: "600",
+  smallValue: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#F8FAFC",
+  },
+  sectionCard: {
+    borderRadius: 24,
+    padding: 18,
+    backgroundColor: "rgba(15, 23, 42, 0.68)",
+    borderWidth: 1,
+    borderColor: "rgba(148,163,184,0.12)",
+  },
+  emptyText: {
+    color: "#94A3B8",
+    fontSize: 14,
+  },
+  itemCard: {
+    borderRadius: 18,
+    padding: 14,
+    backgroundColor: "rgba(17, 24, 39, 0.70)",
+    borderWidth: 1,
+    borderColor: "rgba(148,163,184,0.10)",
+    marginBottom: 12,
+  },
+  itemTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  itemLeft: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  iconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(248,113,113,0.12)",
+  },
+  itemTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#F8FAFC",
+  },
+  itemMeta: {
+    marginTop: 2,
+    fontSize: 12,
+    color: "#94A3B8",
+  },
+  itemRight: {
+    alignItems: "flex-end",
+  },
+  itemValue: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#F8FAFC",
+  },
+  itemSub: {
+    marginTop: 4,
+    fontSize: 12,
+    color: "#94A3B8",
   },
 });

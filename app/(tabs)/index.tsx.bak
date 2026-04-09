@@ -1,0 +1,348 @@
+import React from "react";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
+import { useFinanceStore } from "../../src/store/financeStore";
+import { useLiabilityStore } from "../../src/store/liabilityStore";
+import { useSettingsStore } from "../../src/store/settingsStore";
+import { translations } from "../../src/i18n/translations";
+
+function toSafeNumber(value: unknown): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function formatMoney(value: number, currency: string) {
+  return `${value.toFixed(2)} ${currency}`;
+}
+
+export default function OverviewScreen() {
+  const language = useSettingsStore((state) => state.language) ?? "en";
+  const displayCurrency = useSettingsStore((state) => state.displayCurrency) ?? "EUR";
+  const assets = useFinanceStore((state) => state.assets ?? []);
+  const activeIncomePerYear = useFinanceStore((state) => state.activeIncomePerYear ?? 0);
+  const activeExpensesPerYear = useFinanceStore((state) => state.activeExpensesPerYear ?? 0);
+  const liabilities = useLiabilityStore((state) => state.liabilities ?? []);
+  const t = translations[language];
+
+  const copy =
+    language === "uk"
+      ? {
+          dailyBalance: "ДЕННИЙ БАЛАНС",
+          stable: "+ Стабільна денна позиція",
+          attention: "Потребує уваги",
+          activeDay: "АКТИВНИЙ / ДЕНЬ",
+          passiveDay: "ПАСИВНИЙ / ДЕНЬ",
+          incomeMix: "Структура доходу",
+          active: "Активний",
+          passive: "Пасивний",
+          capital: "Капітал",
+          capitalSub: "Твоя фінансова база",
+          outflow: "Витрати / день",
+          outflowSub: "Активні витрати + пасиви",
+        }
+      : language === "de"
+      ? {
+          dailyBalance: "TAGESBILANZ",
+          stable: "+ Stabile Tagesposition",
+          attention: "Benötigt Aufmerksamkeit",
+          activeDay: "AKTIV / TAG",
+          passiveDay: "PASSIV / TAG",
+          incomeMix: "Einkommensmix",
+          active: "Aktiv",
+          passive: "Passiv",
+          capital: "Kapital",
+          capitalSub: "Deine finanzielle Basis",
+          outflow: "Abfluss / Tag",
+          outflowSub: "Aktive Ausgaben + Verbindlichkeiten",
+        }
+      : {
+          dailyBalance: "DAILY BALANCE",
+          stable: "+ Stable daily position",
+          attention: "Needs attention",
+          activeDay: "ACTIVE / DAY",
+          passiveDay: "PASSIVE / DAY",
+          incomeMix: "Income mix",
+          active: "Active",
+          passive: "Passive",
+          capital: "Capital",
+          capitalSub: "Your financial base",
+          outflow: "Outflow / day",
+          outflowSub: "Active expenses + liabilities",
+        };
+
+  const netWorth = assets.reduce((sum, asset) => {
+    return sum + toSafeNumber(asset.quantity) * toSafeNumber(asset.currentPrice);
+  }, 0);
+
+  const passiveIncomePerYear = assets.reduce((sum, asset) => {
+    const yearlyIncome =
+      toSafeNumber(asset.quantity) *
+      toSafeNumber(asset.currentPrice) *
+      (toSafeNumber((asset as { rate?: number }).rate) / 100);
+
+    return sum + yearlyIncome;
+  }, 0);
+
+  const liabilitiesPerYear = liabilities.reduce((sum, liability) => {
+    return sum + toSafeNumber((liability as { yearlyPayment?: number }).yearlyPayment);
+  }, 0);
+
+  const activeIncomePerDay = activeIncomePerYear / 365;
+  const activeExpensesPerDay = activeExpensesPerYear / 365;
+  const passiveIncomePerDay = passiveIncomePerYear / 365;
+  const liabilitiesPerDay = liabilitiesPerYear / 365;
+
+  const dailyBalance =
+    activeIncomePerDay +
+    passiveIncomePerDay -
+    activeExpensesPerDay -
+    liabilitiesPerDay;
+
+  const totalIncomePerDay = Math.max(0, activeIncomePerDay + passiveIncomePerDay);
+  const activeShare =
+    totalIncomePerDay > 0 ? (activeIncomePerDay / totalIncomePerDay) * 100 : 0;
+  const passiveShare =
+    totalIncomePerDay > 0 ? (passiveIncomePerDay / totalIncomePerDay) * 100 : 0;
+
+  const balanceColor =
+    dailyBalance > 0 ? "#22C55E" : dailyBalance < 0 ? "#EF4444" : "#E5E7EB";
+
+  return (
+    <SafeAreaView style={styles.safeArea} edges={["top"]}>
+      <LinearGradient
+        colors={["#050816", "#0A1020", "#0C1425"]}
+        style={StyleSheet.absoluteFill}
+      />
+
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.heroCard}>
+          <View style={styles.heroGlow} />
+          <Text style={styles.heroLabel}>{copy.dailyBalance}</Text>
+          <Text style={[styles.heroValue, { color: balanceColor }]}>
+            {formatMoney(dailyBalance, displayCurrency)}
+          </Text>
+          <Text style={styles.heroSub}>
+            {dailyBalance >= 0 ? copy.stable : copy.attention}
+          </Text>
+
+          <View style={styles.trendLineWrap}>
+            <View style={styles.trendLineTrack}>
+              <View
+                style={[
+                  styles.trendLineFill,
+                  {
+                    width: `${Math.min(100, Math.max(8, Math.abs(dailyBalance) * 4))}%`,
+                    backgroundColor: balanceColor,
+                  },
+                ]}
+              />
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.grid}>
+          <View style={[styles.smallCard, styles.blueCard]}>
+            <Text style={styles.smallLabel}>{copy.activeDay}</Text>
+            <Text style={[styles.smallValue, { color: "#5B8CFF" }]}>
+              {formatMoney(activeIncomePerDay, displayCurrency)}
+            </Text>
+            <Text style={styles.smallMeta}>{activeShare.toFixed(0)}%</Text>
+          </View>
+
+          <View style={[styles.smallCard, styles.greenCard]}>
+            <Text style={styles.smallLabel}>{copy.passiveDay}</Text>
+            <Text style={[styles.smallValue, { color: "#4ADE80" }]}>
+              {formatMoney(passiveIncomePerDay, displayCurrency)}
+            </Text>
+            <Text style={styles.smallMeta}>{passiveShare.toFixed(0)}%</Text>
+          </View>
+        </View>
+
+        <View style={styles.barCard}>
+          <Text style={styles.sectionTitle}>{copy.incomeMix}</Text>
+          <View style={styles.mixTrack}>
+            <View style={[styles.mixActive, { width: `${activeShare}%` }]} />
+            <View style={[styles.mixPassive, { width: `${passiveShare}%` }]} />
+          </View>
+          <View style={styles.mixLegendRow}>
+            <Text style={styles.legendText}>{copy.active}</Text>
+            <Text style={styles.legendText}>{copy.passive}</Text>
+          </View>
+        </View>
+
+        <View style={styles.infoCard}>
+          <Text style={styles.sectionTitle}>{copy.capital}</Text>
+          <Text style={styles.sectionSub}>{copy.capitalSub}</Text>
+          <Text style={styles.infoValue}>{formatMoney(netWorth, displayCurrency)}</Text>
+        </View>
+
+        <View style={styles.infoCard}>
+          <Text style={styles.sectionTitle}>{copy.outflow}</Text>
+          <Text style={styles.sectionSub}>{copy.outflowSub}</Text>
+          <Text style={[styles.infoValue, { color: "#F87171" }]}>
+            {formatMoney(activeExpensesPerDay + liabilitiesPerDay, displayCurrency)}
+          </Text>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#050816",
+  },
+  content: {
+    paddingHorizontal: 20,
+    paddingBottom: 150,
+    gap: 16,
+  },
+  pageTitle: {
+    fontSize: 34,
+    fontWeight: "800",
+    color: "#F8FAFC",
+    marginTop: 8,
+    marginBottom: 10,
+  },
+  heroCard: {
+    position: "relative",
+    overflow: "hidden",
+    borderRadius: 28,
+    padding: 22,
+    backgroundColor: "rgba(17, 24, 39, 0.72)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+  },
+  heroGlow: {
+    position: "absolute",
+    top: -30,
+    right: -20,
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: "rgba(59,130,246,0.12)",
+  },
+  heroLabel: {
+    fontSize: 13,
+    letterSpacing: 2.2,
+    color: "#94A3B8",
+    marginBottom: 14,
+  },
+  heroValue: {
+    fontSize: 40,
+    fontWeight: "800",
+    marginBottom: 8,
+  },
+  heroSub: {
+    fontSize: 15,
+    color: "#94A3B8",
+    marginBottom: 18,
+  },
+  trendLineWrap: {
+    marginTop: 4,
+  },
+  trendLineTrack: {
+    height: 8,
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    overflow: "hidden",
+  },
+  trendLineFill: {
+    height: "100%",
+    borderRadius: 999,
+  },
+  grid: {
+    flexDirection: "row",
+    gap: 14,
+  },
+  smallCard: {
+    flex: 1,
+    borderRadius: 24,
+    padding: 18,
+    backgroundColor: "rgba(17, 24, 39, 0.72)",
+    borderWidth: 1,
+  },
+  blueCard: {
+    borderColor: "rgba(59,130,246,0.28)",
+  },
+  greenCard: {
+    borderColor: "rgba(34,197,94,0.28)",
+  },
+  smallLabel: {
+    fontSize: 12,
+    color: "#94A3B8",
+    letterSpacing: 1.6,
+    marginBottom: 12,
+  },
+  smallValue: {
+    fontSize: 22,
+    fontWeight: "800",
+    marginBottom: 10,
+  },
+  smallMeta: {
+    fontSize: 14,
+    color: "#E5E7EB",
+    fontWeight: "700",
+  },
+  barCard: {
+    borderRadius: 24,
+    padding: 18,
+    backgroundColor: "rgba(17, 24, 39, 0.72)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#F8FAFC",
+    marginBottom: 6,
+  },
+  sectionSub: {
+    fontSize: 14,
+    color: "#94A3B8",
+    marginBottom: 12,
+  },
+  mixTrack: {
+    flexDirection: "row",
+    height: 10,
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    overflow: "hidden",
+    marginTop: 10,
+  },
+  mixActive: {
+    height: "100%",
+    backgroundColor: "#3B82F6",
+  },
+  mixPassive: {
+    height: "100%",
+    backgroundColor: "#22C55E",
+  },
+  mixLegendRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 12,
+  },
+  legendText: {
+    color: "#94A3B8",
+    fontSize: 13,
+  },
+  infoCard: {
+    borderRadius: 24,
+    padding: 20,
+    backgroundColor: "rgba(17, 24, 39, 0.72)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+  },
+  infoValue: {
+    fontSize: 34,
+    fontWeight: "800",
+    color: "#F8FAFC",
+    marginTop: 4,
+  },
+});

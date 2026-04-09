@@ -1,0 +1,459 @@
+import React, { useMemo } from "react";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Stack } from "expo-router";
+import { useFinanceStore } from "../../src/store/financeStore";
+import { useLiabilityStore } from "../../src/store/liabilityStore";
+import { useSettingsStore } from "../../src/store/settingsStore";
+
+const BG = "#050816";
+const CARD = "rgba(15, 23, 42, 0.78)";
+const CARD_STRONG = "rgba(15, 23, 42, 0.92)";
+const BORDER = "rgba(148, 163, 184, 0.16)";
+const TEXT = "#F8FAFC";
+const MUTED = "#94A3B8";
+const ACCENT = "#3B82F6";
+const POSITIVE = "#22C55E";
+const NEGATIVE = "#EF4444";
+
+type AppLanguage = "en" | "de" | "uk";
+
+function toSafeNumber(value: unknown): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function getLiabilityYearlyValue(liability: any): number {
+  if (toSafeNumber(liability?.yearlyPayment) > 0) {
+    return toSafeNumber(liability.yearlyPayment);
+  }
+
+  if (toSafeNumber(liability?.paymentAmount) > 0) {
+    const amount = toSafeNumber(liability.paymentAmount);
+    const period = String(liability?.paymentPeriod ?? "").toLowerCase();
+
+    if (period === "daily") return amount * 365;
+    if (period === "monthly") return amount * 12;
+    if (period === "yearly") return amount;
+  }
+
+  if (toSafeNumber(liability?.amount) > 0 && String(liability?.period ?? "").toLowerCase() === "yearly") {
+    return toSafeNumber(liability.amount);
+  }
+
+  return 0;
+}
+
+function formatMoney(value: number, currency: string) {
+  return `${value >= 0 ? "" : "-"}${Math.abs(value).toFixed(2)} ${currency}`;
+}
+
+export default function OverviewScreen() {
+  const assets = useFinanceStore((state: any) => state.assets ?? []);
+  const activeIncomePerYear = useFinanceStore((state: any) => state.activeIncomePerYear ?? 0);
+  const activeExpensesPerYear = useFinanceStore((state: any) => state.activeExpensesPerYear ?? 0);
+  const liabilities = useLiabilityStore((state: any) => state.liabilities ?? []);
+  const language = (useSettingsStore((state: any) => state.language) ?? "en") as AppLanguage;
+  const displayCurrency = useSettingsStore((state: any) => state.displayCurrency ?? "EUR");
+
+  const t = useMemo(() => {
+    if (language === "uk") {
+      return {
+        title: "Огляд",
+        subtitle: "DAILY BALANCE",
+        heroLabel: "Поточний денний баланс",
+        capital: "Капітал",
+        capitalSub: "Твоя фінансова база",
+        passiveIncome: "Пасивний дохід / рік",
+        liabilities: "Пасиви / рік",
+        activeIncome: "Активний дохід / рік",
+        activeExpenses: "Активні витрати / рік",
+        inflow: "Вхідний потік",
+        outflow: "Вихідний потік",
+        breakdown: "Структура",
+        staking: "Стейкінг",
+        deposits: "Депозити",
+        other: "Інше",
+        adviceGood: "Баланс позитивний. Можна думати про прискорення накопичення.",
+        adviceMid: "Баланс близький до нуля. Добре б посилити дохід або зменшити витрати.",
+        adviceBad: "Баланс негативний. Спершу зменшити щорічний відтік і стабілізувати базу.",
+      };
+    }
+
+    if (language === "de") {
+      return {
+        title: "Überblick",
+        subtitle: "DAILY BALANCE",
+        heroLabel: "Aktueller Tagessaldo",
+        capital: "Kapital",
+        capitalSub: "Deine finanzielle Basis",
+        passiveIncome: "Passives Einkommen / Jahr",
+        liabilities: "Verbindlichkeiten / Jahr",
+        activeIncome: "Aktives Einkommen / Jahr",
+        activeExpenses: "Aktive Ausgaben / Jahr",
+        inflow: "Zufluss",
+        outflow: "Abfluss",
+        breakdown: "Struktur",
+        staking: "Staking",
+        deposits: "Einlagen",
+        other: "Sonstiges",
+        adviceGood: "Der Saldo ist positiv. Du kannst stärker auf Vermögensaufbau gehen.",
+        adviceMid: "Der Saldo ist nahe null. Einkommen erhöhen oder Ausgaben senken wäre sinnvoll.",
+        adviceBad: "Der Saldo ist negativ. Erst den jährlichen Abfluss senken und die Basis stabilisieren.",
+      };
+    }
+
+    return {
+      title: "Overview",
+      subtitle: "DAILY BALANCE",
+      heroLabel: "Current daily balance",
+      capital: "Capital",
+      capitalSub: "Your financial base",
+      passiveIncome: "Passive income / year",
+      liabilities: "Liabilities / year",
+      activeIncome: "Active income / year",
+      activeExpenses: "Active expenses / year",
+      inflow: "Inflow",
+      outflow: "Outflow",
+      breakdown: "Breakdown",
+      staking: "Staking",
+      deposits: "Deposits",
+      other: "Other",
+      adviceGood: "Balance is positive. You can think about accelerating wealth building.",
+      adviceMid: "Balance is near zero. It would help to increase income or reduce expenses.",
+      adviceBad: "Balance is negative. First reduce yearly outflow and stabilize the base.",
+    };
+  }, [language]);
+
+  const metrics = useMemo(() => {
+    const netWorth = assets.reduce((sum: number, asset: any) => {
+      const quantity = toSafeNumber(asset?.quantity);
+      const currentPrice = toSafeNumber(asset?.currentPrice);
+      return sum + quantity * currentPrice;
+    }, 0);
+
+    const stakingIncome = assets
+      .filter((asset: any) => String(asset?.category) === "staking")
+      .reduce((sum: number, asset: any) => {
+        const value = toSafeNumber(asset?.quantity) * toSafeNumber(asset?.currentPrice);
+        const rate = toSafeNumber(asset?.rate);
+        return sum + value * rate / 100;
+      }, 0);
+
+    const depositIncome = assets
+      .filter((asset: any) => String(asset?.category) === "deposit")
+      .reduce((sum: number, asset: any) => {
+        const value = toSafeNumber(asset?.quantity) * toSafeNumber(asset?.currentPrice);
+        const rate = toSafeNumber(asset?.rate);
+        return sum + value * rate / 100;
+      }, 0);
+
+    const totalPassiveIncome = assets.reduce((sum: number, asset: any) => {
+      const value = toSafeNumber(asset?.quantity) * toSafeNumber(asset?.currentPrice);
+      const rate = toSafeNumber(asset?.rate);
+      return sum + value * rate / 100;
+    }, 0);
+
+    const liabilitiesPerYear = liabilities.reduce((sum: number, liability: any) => {
+      return sum + getLiabilityYearlyValue(liability);
+    }, 0);
+
+    const otherPassiveIncome = Math.max(0, totalPassiveIncome - stakingIncome - depositIncome);
+    const yearlyInflow = toSafeNumber(activeIncomePerYear) + totalPassiveIncome;
+    const yearlyOutflow = toSafeNumber(activeExpensesPerYear) + liabilitiesPerYear;
+    const dailyBalance = (yearlyInflow - yearlyOutflow) / 365;
+
+    return {
+      netWorth,
+      stakingIncome,
+      depositIncome,
+      otherPassiveIncome,
+      totalPassiveIncome,
+      liabilitiesPerYear,
+      yearlyInflow,
+      yearlyOutflow,
+      dailyBalance,
+    };
+  }, [assets, liabilities, activeIncomePerYear, activeExpensesPerYear]);
+
+  const balanceColor =
+    metrics.dailyBalance > 0 ? POSITIVE : metrics.dailyBalance < 0 ? NEGATIVE : TEXT;
+
+  const adviceText =
+    metrics.dailyBalance > 5
+      ? t.adviceGood
+      : metrics.dailyBalance >= -5
+      ? t.adviceMid
+      : t.adviceBad;
+
+  return (
+    <View style={styles.root}>
+      <Stack.Screen options={{ headerShown: false }} />
+
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.heroCard}>
+          <View style={styles.heroGlow} />
+          <Text style={styles.heroSubtitle}>{t.subtitle}</Text>
+          <Text style={styles.heroTitle}>{t.heroLabel}</Text>
+          <Text style={[styles.heroValue, { color: balanceColor }]}>
+            {formatMoney(metrics.dailyBalance, displayCurrency)}
+          </Text>
+        </View>
+
+        <View style={styles.row}>
+          <View style={[styles.card, styles.halfCard]}>
+            <Text style={styles.cardLabel}>{t.capital}</Text>
+            <Text style={styles.cardValue}>{formatMoney(metrics.netWorth, displayCurrency)}</Text>
+            <Text style={styles.cardSub}>{t.capitalSub}</Text>
+          </View>
+
+          <View style={[styles.card, styles.halfCard]}>
+            <Text style={styles.cardLabel}>{t.passiveIncome}</Text>
+            <Text style={[styles.cardValue, { color: POSITIVE }]}>
+              {formatMoney(metrics.totalPassiveIncome, displayCurrency)}
+            </Text>
+            <Text style={styles.cardSub}>{t.breakdown}</Text>
+          </View>
+        </View>
+
+        <View style={styles.row}>
+          <View style={[styles.card, styles.halfCard]}>
+            <Text style={styles.cardLabel}>{t.activeIncome}</Text>
+            <Text style={[styles.cardValue, { color: POSITIVE }]}>
+              {formatMoney(toSafeNumber(activeIncomePerYear), displayCurrency)}
+            </Text>
+          </View>
+
+          <View style={[styles.card, styles.halfCard]}>
+            <Text style={styles.cardLabel}>{t.activeExpenses}</Text>
+            <Text style={[styles.cardValue, { color: NEGATIVE }]}>
+              {formatMoney(toSafeNumber(activeExpensesPerYear), displayCurrency)}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>{t.breakdown}</Text>
+
+          <View style={styles.metricRow}>
+            <Text style={styles.metricLabel}>{t.staking}</Text>
+            <Text style={[styles.metricValue, { color: POSITIVE }]}>
+              {formatMoney(metrics.stakingIncome, displayCurrency)}
+            </Text>
+          </View>
+
+          <View style={styles.metricRow}>
+            <Text style={styles.metricLabel}>{t.deposits}</Text>
+            <Text style={[styles.metricValue, { color: POSITIVE }]}>
+              {formatMoney(metrics.depositIncome, displayCurrency)}
+            </Text>
+          </View>
+
+          <View style={styles.metricRow}>
+            <Text style={styles.metricLabel}>{t.other}</Text>
+            <Text style={[styles.metricValue, { color: POSITIVE }]}>
+              {formatMoney(metrics.otherPassiveIncome, displayCurrency)}
+            </Text>
+          </View>
+
+          <View style={styles.divider} />
+
+          <View style={styles.metricRow}>
+            <Text style={styles.metricLabel}>{t.liabilities}</Text>
+            <Text style={[styles.metricValue, { color: NEGATIVE }]}>
+              {formatMoney(metrics.liabilitiesPerYear, displayCurrency)}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Flow</Text>
+
+          <View style={styles.flowBarShell}>
+            <View
+              style={[
+                styles.flowBarIn,
+                {
+                  flex:
+                    metrics.yearlyInflow <= 0 && metrics.yearlyOutflow <= 0
+                      ? 1
+                      : Math.max(metrics.yearlyInflow, 1),
+                },
+              ]}
+            />
+            <View
+              style={[
+                styles.flowBarOut,
+                {
+                  flex:
+                    metrics.yearlyInflow <= 0 && metrics.yearlyOutflow <= 0
+                      ? 1
+                      : Math.max(metrics.yearlyOutflow, 1),
+                },
+              ]}
+            />
+          </View>
+
+          <View style={styles.metricRow}>
+            <Text style={styles.metricLabel}>{t.inflow}</Text>
+            <Text style={[styles.metricValue, { color: POSITIVE }]}>
+              {formatMoney(metrics.yearlyInflow, displayCurrency)}
+            </Text>
+          </View>
+
+          <View style={styles.metricRow}>
+            <Text style={styles.metricLabel}>{t.outflow}</Text>
+            <Text style={[styles.metricValue, { color: NEGATIVE }]}>
+              {formatMoney(metrics.yearlyOutflow, displayCurrency)}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.adviceCard}>
+          <Text style={styles.adviceTitle}>{t.title}</Text>
+          <Text style={styles.adviceText}>{adviceText}</Text>
+        </View>
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: BG,
+  },
+  content: {
+    padding: 20,
+    paddingTop: 28,
+    paddingBottom: 120,
+    gap: 14,
+  },
+  heroCard: {
+    backgroundColor: CARD,
+    borderWidth: 1,
+    borderColor: "rgba(59, 130, 246, 0.24)",
+    borderRadius: 28,
+    padding: 20,
+    overflow: "hidden",
+  },
+  heroGlow: {
+    position: "absolute",
+    right: -20,
+    top: -30,
+    width: 180,
+    height: 180,
+    borderRadius: 999,
+    backgroundColor: "rgba(59,130,246,0.18)",
+  },
+  heroSubtitle: {
+    color: "#93C5FD",
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 1.4,
+    marginBottom: 10,
+  },
+  heroTitle: {
+    color: TEXT,
+    fontSize: 15,
+    fontWeight: "600",
+    marginBottom: 10,
+  },
+  heroValue: {
+    fontSize: 34,
+    fontWeight: "800",
+    letterSpacing: 0.2,
+  },
+  row: {
+    flexDirection: "row",
+    gap: 14,
+  },
+  card: {
+    backgroundColor: CARD,
+    borderWidth: 1,
+    borderColor: BORDER,
+    borderRadius: 24,
+    padding: 16,
+  },
+  halfCard: {
+    flex: 1,
+  },
+  cardLabel: {
+    color: MUTED,
+    fontSize: 12,
+    fontWeight: "700",
+    marginBottom: 10,
+  },
+  cardValue: {
+    color: TEXT,
+    fontSize: 22,
+    fontWeight: "800",
+    marginBottom: 8,
+  },
+  cardSub: {
+    color: MUTED,
+    fontSize: 12,
+  },
+  sectionTitle: {
+    color: TEXT,
+    fontSize: 16,
+    fontWeight: "700",
+    marginBottom: 14,
+  },
+  metricRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 8,
+  },
+  metricLabel: {
+    color: "#CBD5E1",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  metricValue: {
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  divider: {
+    height: 1,
+    backgroundColor: BORDER,
+    marginVertical: 8,
+  },
+  flowBarShell: {
+    height: 14,
+    backgroundColor: CARD_STRONG,
+    borderRadius: 999,
+    overflow: "hidden",
+    flexDirection: "row",
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: BORDER,
+  },
+  flowBarIn: {
+    backgroundColor: POSITIVE,
+  },
+  flowBarOut: {
+    backgroundColor: NEGATIVE,
+  },
+  adviceCard: {
+    backgroundColor: "rgba(15, 23, 42, 0.88)",
+    borderWidth: 1,
+    borderColor: "rgba(59,130,246,0.22)",
+    borderRadius: 24,
+    padding: 16,
+  },
+  adviceTitle: {
+    color: TEXT,
+    fontSize: 15,
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+  adviceText: {
+    color: MUTED,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+});

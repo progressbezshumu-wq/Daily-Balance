@@ -1,598 +1,586 @@
-﻿import { View, Text, StyleSheet, Pressable, ScrollView, Image, TextInput, Modal, Keyboard } from "react-native";
+import React, { useMemo, useState } from "react";
+import {
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useState } from "react";
-
+import { LinearGradient } from "expo-linear-gradient";
+import { router } from "expo-router";
 import { useFinanceStore } from "../../src/store/financeStore";
 import { useSettingsStore } from "../../src/store/settingsStore";
 import { translations } from "../../src/i18n/translations";
-import { assetLogos } from "../../src/constants/assetLogos";
 
-const FX: Record<string, number> = {
-  EUR: 1,
-  USD: 1.1,
-  UAH: 42,
+type AssetItem = {
+  id?: string;
+  symbol?: string;
+  name?: string;
+  quantity?: number;
+  buyPrice?: number;
+  currentPrice?: number;
+  currency?: string;
+  category?: string;
+  rate?: number;
 };
 
-function toSafeNumber(value: unknown) {
-  const num = Number(value);
-  return Number.isFinite(num) ? num : 0;
+type MergedAsset = {
+  key: string;
+  ids: string[];
+  symbol: string;
+  name: string;
+  category: string;
+  currency: string;
+  quantity: number;
+  buyPrice: number;
+  currentPrice: number;
+  rate: number;
+};
+
+function toSafeNumber(value: unknown): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
 }
 
-function convert(value: number, from: string, to: string) {
-  const eur = value / (FX[from] ?? 1);
-  return eur * (FX[to] ?? 1);
+function formatMoney(value: number, currency: string) {
+  return `${value.toFixed(2)} ${currency}`;
 }
 
-function getCategoryIconName(category: string | undefined) {
-  if (category === "stock") return "chart-line";
-  if (category === "etf") return "finance";
-  if (category === "crypto") return "currency-btc";
-  if (category === "staking") return "lock-outline";
-  if (category === "deposit") return "bank-outline";
-  if (category === "cash") return "cash";
-  return "help-circle-outline";
+function getCategoryIcon(category: string) {
+  switch (category) {
+    case "crypto":
+      return "bitcoin";
+    case "stock":
+      return "chart-line";
+    case "etf":
+      return "finance";
+    case "staking":
+      return "lock";
+    case "deposit":
+      return "bank";
+    case "cash":
+      return "cash";
+    default:
+      return "wallet-outline";
+  }
 }
 
-function getGroupTitle(category: string | undefined, t: any) {
-  if (category === "crypto") return t.crypto;
-  if (category === "stock") return t.stock;
-  if (category === "etf") return t.etf;
-  if (category === "staking") return t.staking;
-  if (category === "deposit") return t.deposit;
-  if (category === "cash") return t.cash;
-  return t.other;
-}
+function mergeAssets(list: AssetItem[]): MergedAsset[] {
+  const map = new Map<string, MergedAsset>();
 
-function parseLocaleNumber(value: string): number {
-  return Number(value.replace(",", ".").trim());
+  for (const asset of list ?? []) {
+    const category = asset.category ?? "other";
+    const symbol = asset.symbol ?? asset.name ?? "asset";
+    const currency = asset.currency ?? "EUR";
+    const key = `${category}__${symbol}__${currency}`;
+
+    const quantity = toSafeNumber(asset.quantity);
+    const buyPrice = toSafeNumber(asset.buyPrice);
+    const currentPrice = toSafeNumber(asset.currentPrice);
+    const rate = toSafeNumber(asset.rate);
+
+    if (!map.has(key)) {
+      map.set(key, {
+        key,
+        ids: asset.id ? [asset.id] : [],
+        symbol: asset.symbol ?? "",
+        name: asset.name ?? asset.symbol ?? "Asset",
+        category,
+        currency,
+        quantity,
+        buyPrice,
+        currentPrice,
+        rate,
+      });
+      continue;
+    }
+
+    const prev = map.get(key)!;
+    const totalQuantity = prev.quantity + quantity;
+
+    const averageBuyPrice =
+      totalQuantity > 0
+        ? (prev.buyPrice * prev.quantity + buyPrice * quantity) / totalQuantity
+        : 0;
+
+    map.set(key, {
+      ...prev,
+      ids: asset.id ? [...prev.ids, asset.id] : prev.ids,
+      quantity: totalQuantity,
+      buyPrice: averageBuyPrice,
+      currentPrice: currentPrice || prev.currentPrice,
+      rate: Math.max(prev.rate, rate),
+    });
+  }
+
+  return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export default function AssetsScreen() {
-  const router = useRouter();
-
-  const assets = useFinanceStore((state) => state.assets);
-  const deleteAsset = useFinanceStore((state) => state.deleteAsset);
-  const addAsset = useFinanceStore((state) => state.addAsset);
-  const updateAsset = useFinanceStore((state) => state.updateAsset);
-
   const language = useSettingsStore((state) => state.language) ?? "en";
-  const displayCurrency = useSettingsStore((state) => state.displayCurrency);
+  const displayCurrency = useSettingsStore((state) => state.displayCurrency) ?? "EUR";
+  const rawAssets = useFinanceStore((state) => state.assets ?? []);
   const t = translations[language];
-
-  const [cashInput, setCashInput] = useState("");
   const [showCashHelp, setShowCashHelp] = useState(false);
 
-  const cashAsset = assets.find((a) => a.category === "cash");
+  const copy =
+    language === "uk"
+      ? {
+          title: "Активи",
+          subtitle: "Головні позиції твого портфеля",
+          addAsset: "Додати актив",
+          cashTitle: "Готівка",
+          cashText: "Швидке додавання готівки",
+          allAssets: "Список активів",
+          avgBuy: "Сер. ціна",
+          qty: "К-сть",
+          price: "Ціна",
+          empty: "Поки активів немає",
+          ok: "OK",
+        }
+      : language === "de"
+      ? {
+          title: "Vermögenswerte",
+          subtitle: "Die Hauptpositionen deines Portfolios",
+          addAsset: "Asset hinzufügen",
+          cashTitle: "Bargeld",
+          cashText: "Bargeld schnell hinzufügen",
+          allAssets: "Asset-Liste",
+          avgBuy: "Ø Kaufpreis",
+          qty: "Menge",
+          price: "Preis",
+          empty: "Noch keine Assets",
+          ok: "OK",
+        }
+      : {
+          title: "Assets",
+          subtitle: "Main positions of your portfolio",
+          addAsset: "Add asset",
+          cashTitle: "Cash",
+          cashText: "Quick cash entry",
+          allAssets: "Assets list",
+          avgBuy: "Avg buy",
+          qty: "Qty",
+          price: "Price",
+          empty: "No assets yet",
+          ok: "OK",
+        };
 
-  function handleAddCash() {
-    const value = parseLocaleNumber(cashInput);
-    if (Number.isNaN(value) || value <= 0) return;
+  const assets = useMemo(() => mergeAssets(rawAssets), [rawAssets]);
 
-    if (cashAsset) {
-      updateAsset(cashAsset.id, {
-        quantity: toSafeNumber(cashAsset.quantity) + value,
-      });
-    } else {
-      addAsset({
-        symbol: "EUR",
-        name: "Cash",
-        quantity: value,
-        buyPrice: 1,
-        currentPrice: 1,
-        rate: 0,
-        category: "cash",
-        currency: "EUR",
-      });
+  const groupedAssets = useMemo(() => {
+    const groups = new Map<string, MergedAsset[]>();
+
+    for (const asset of assets) {
+      if (!groups.has(asset.category)) groups.set(asset.category, []);
+      groups.get(asset.category)!.push(asset);
     }
 
-    setCashInput("");
-    Keyboard.dismiss();
-  }
+    return Array.from(groups.entries()).map(([category, items]) => ({
+      category,
+      items,
+    }));
+  }, [assets]);
 
-  const total = assets.reduce((sum, asset) => {
-    const nativeValue =
-      toSafeNumber(asset.quantity) * toSafeNumber(asset.currentPrice);
-    return sum + convert(nativeValue, asset.currency, displayCurrency);
-  }, 0);
-
-  const groupedAssets = ["crypto", "stock", "etf", "staking", "deposit", "cash"]
-    .map((category) => {
-      const items = assets
-        .filter((asset) => (asset.category ?? "crypto") === category)
-        .sort((a, b) => {
-          const aValue = convert(
-            toSafeNumber(a.quantity) * toSafeNumber(a.currentPrice),
-            a.currency,
-            displayCurrency
-          );
-          const bValue = convert(
-            toSafeNumber(b.quantity) * toSafeNumber(b.currentPrice),
-            b.currency,
-            displayCurrency
-          );
-          return bValue - aValue;
-        });
-
-      return {
-        category,
-        title: getGroupTitle(category, t),
-        items,
-      };
-    })
-    .filter((group) => group.items.length > 0);
+  const handleAddCash = () => {
+    router.push("/add-asset");
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
-      <View style={styles.container}>
-        <Text style={styles.title}>{t.assets}</Text>
+      <LinearGradient
+        colors={["#050816", "#0A1020", "#0C1425"]}
+        style={StyleSheet.absoluteFill}
+      />
 
-        <Text style={styles.total}>
-          {t.totalAssets}: {total.toFixed(2)} {displayCurrency}
-        </Text>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.header}>
+          </View>
 
-        <View style={styles.cashBox}>
-          <View style={styles.cashHeader}>
-            <Text style={styles.cashTitle}>{t.cash}</Text>
-
-            <Pressable key={item.id}
-              style={styles.helpButton}
-              onPress={() => setShowCashHelp(true)}
-              hitSlop={8}
+        <View style={styles.topRow}>
+          <Pressable style={styles.addAssetButton} onPress={() => router.push("/add-asset")}>
+            <LinearGradient
+              colors={["rgba(59,130,246,0.95)", "rgba(37,99,235,0.95)"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.addAssetGradient}
             >
-              <Text style={styles.helpButtonText}>?</Text>
-            </Pressable>
-          </View>
-
-          <View style={styles.cashRow}>
-            <TextInput
-              style={styles.cashInput}
-              placeholder="1000"
-              placeholderTextColor="#888"
-              keyboardType="decimal-pad"
-              value={cashInput}
-              onChangeText={setCashInput}
-              returnKeyType="done"
-              onSubmitEditing={handleAddCash}
-            />
-
-            <Pressable key={item.id} style={styles.cashButton} onPress={handleAddCash}>
-              <MaterialCommunityIcons name="arrow-right" size={20} color="white" />
-            </Pressable>
-          </View>
+              <MaterialCommunityIcons name="plus" size={18} color="#FFFFFF" />
+              <Text style={styles.addAssetText}>{copy.addAsset}</Text>
+            </LinearGradient>
+          </Pressable>
         </View>
 
-        <Modal visible={showCashHelp} transparent animationType="fade">
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalBox}>
-              <Text style={styles.modalTitle}>{t.cashHelpTitle}</Text>
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>{copy.allAssets}</Text>
 
-              <Text style={styles.modalText}>{t.cashHelpText}</Text>
+          {groupedAssets.length === 0 ? (
+            <Text style={styles.emptyText}>{copy.empty}</Text>
+          ) : (
+            groupedAssets.map((group, groupIndex) => (
+              <View key={`${group.category}-${groupIndex}`} style={styles.groupBlock}>
+                <Text style={styles.groupTitle}>{group.category.toUpperCase()}</Text>
 
-              <Pressable key={item.id} style={styles.modalCloseButton} onPress={() => setShowCashHelp(false)}>
-                <Text style={styles.modalCloseButtonText}>{t.ok}</Text>
-              </Pressable>
-            </View>
-          </View>
-        </Modal>
-
-        {assets.length === 0 ? (
-          <Text style={styles.empty}>{t.noAssetsYet}</Text>
-        ) : (
-          <ScrollView
-            contentContainerStyle={styles.list}
-            showsVerticalScrollIndicator={false}
-            alwaysBounceVertical
-            bounces
-          >
-            {groupedAssets.map((group) => (
-              <View key={group.category} style={styles.groupWrap}>
-                <Text style={styles.groupTitle}>{group.title}</Text>
-
-                {group.items.map((asset) => {
-                  const quantity = toSafeNumber(asset.quantity);
-                  const buyPrice = toSafeNumber(asset.buyPrice);
-                  const currentPrice = toSafeNumber(asset.currentPrice);
-                  const rate = toSafeNumber(asset.rate);
-
-                  const currentValueNative = quantity * currentPrice;
-                  const buyValueNative = quantity * buyPrice;
-
-                  const currentValue = convert(
-                    currentValueNative,
-                    asset.currency,
-                    displayCurrency
-                  );
-                  const buyValue = convert(
-                    buyValueNative,
-                    asset.currency,
-                    displayCurrency
-                  );
-                  const convertedBuyPrice = convert(
-                    buyPrice,
-                    asset.currency,
-                    displayCurrency
-                  );
-                  const convertedCurrentPrice = convert(
-                    currentPrice,
-                    asset.currency,
-                    displayCurrency
-                  );
-
-                  const profit = currentValue - buyValue;
-                  const profitPercent =
-                    buyValue !== 0 ? (profit / buyValue) * 100 : 0;
-
-                  const passiveIncomePerYearDisplay = currentValue * (rate / 100);
-                  const passiveIncomeNativeStaking = quantity * (rate / 100);
-                  const passiveIncomeNativeDeposit = quantity * (rate / 100);
-
-                  const profitColor = profit >= 0 ? "#3fb950" : "#ff4d4f";
-                  const logoSource =
-                    assetLogos[asset.symbol as keyof typeof assetLogos] ?? null;
+                {group.items.map((asset, index) => {
+                  const value = asset.quantity * asset.currentPrice;
+                  const profit = (asset.currentPrice - asset.buyPrice) * asset.quantity;
+                  const profitColor = profit >= 0 ? "#22C55E" : "#EF4444";
 
                   return (
-                    <Pressable key={item.id}
-                      key={asset.id}
-                      style={styles.card}
-                      onPress={() =>
-                        router.push({
-                          pathname: "/asset-details",
-                          params: { assetId: asset.id },
-                        })
-                      }
+                    <Pressable
+                      key={`${asset.key}-${index}`}
+                      style={styles.assetCard}
+                      onPress={() => router.push("/add-asset")}
                     >
-                      <View style={styles.headerRow}>
-                        <View style={styles.logoWrap}>
-                          {logoSource ? (
-                            <Image source={logoSource} style={styles.logo} />
-                          ) : (
+                      <View style={styles.assetGlassGlow} />
+
+                      <View style={styles.assetTopRow}>
+                        <View style={styles.assetLeft}>
+                          <View style={styles.assetIconWrap}>
                             <MaterialCommunityIcons
-                              name={getCategoryIconName(asset.category)}
-                              size={22}
-                              color="white"
+                              name={getCategoryIcon(asset.category)}
+                              size={20}
+                              color="#60A5FA"
                             />
-                          )}
+                          </View>
+
+                          <View>
+                            <Text style={styles.assetName}>{asset.name}</Text>
+                            <Text style={styles.assetMeta}>
+                              {asset.symbol || asset.category.toUpperCase()}
+                            </Text>
+                          </View>
                         </View>
 
-                        <View style={styles.headerTextWrap}>
-                          <Text style={styles.cardTitle}>
-                            {asset.symbol} — {asset.name}
+                        <View style={styles.assetRight}>
+                          <Text style={styles.assetValue}>
+                            {formatMoney(value, displayCurrency)}
+                          </Text>
+                          <Text style={[styles.assetProfit, { color: profitColor }]}>
+                            {profit >= 0 ? "+" : ""}
+                            {formatMoney(profit, displayCurrency)}
                           </Text>
                         </View>
-
-                        <MaterialCommunityIcons
-                          name="chevron-right"
-                          size={20}
-                          color="#8b93a7"
-                        />
                       </View>
 
-                      {(asset.category === "stock" ||
-                        asset.category === "etf" ||
-                        asset.category === "crypto") && (
-                        <>
-                          <Text style={styles.cardLine}>
-                            {t.quantity}: {quantity}
+                      <View style={styles.assetStatsRow}>
+                        <View style={styles.statBox}>
+                          <Text style={styles.statLabel}>{copy.qty}</Text>
+                          <Text style={styles.statValue}>{asset.quantity.toFixed(4)}</Text>
+                        </View>
+
+                        <View style={styles.statBox}>
+                          <Text style={styles.statLabel}>{copy.avgBuy}</Text>
+                          <Text style={styles.statValue}>
+                            {formatMoney(asset.buyPrice, asset.currency)}
                           </Text>
+                        </View>
 
-                          <Text style={styles.cardLine}>
-                            {t.buyPrice}: {convertedBuyPrice.toFixed(2)} {displayCurrency}
+                        <View style={styles.statBox}>
+                          <Text style={styles.statLabel}>{copy.price}</Text>
+                          <Text style={styles.statValue}>
+                            {formatMoney(asset.currentPrice, asset.currency)}
                           </Text>
-
-                          <Text style={styles.cardLine}>
-                            {t.currentPrice}: {convertedCurrentPrice.toFixed(2)} {displayCurrency}
-                          </Text>
-
-                          <Text style={styles.cardLine}>
-                            {t.value}: {currentValue.toFixed(2)} {displayCurrency}
-                          </Text>
-
-                          <Text style={[styles.cardLine, { color: profitColor }]}>
-                            {t.profitLoss}: {profit.toFixed(2)} {displayCurrency} ({profitPercent.toFixed(2)}%)
-                          </Text>
-                        </>
-                      )}
-
-                      {asset.category === "staking" && (
-                        <>
-                          <Text style={styles.cardLine}>
-                            {t.quantity}: {quantity}
-                          </Text>
-
-                          <Text style={styles.cardLine}>
-                            {t.currentPrice}: {convertedCurrentPrice.toFixed(2)} {displayCurrency}
-                          </Text>
-
-                          <Text style={styles.cardLine}>
-                            {t.value}: {currentValue.toFixed(2)} {displayCurrency}
-                          </Text>
-
-                          <Text style={styles.cardLine}>
-                            {t.annualRate}: {rate.toFixed(2)}%
-                          </Text>
-
-                          <Text style={[styles.cardLine, styles.incomeLine]}>
-                            {t.passiveIncomePerYear}: {passiveIncomeNativeStaking.toFixed(2)} {asset.symbol}
-                          </Text>
-
-                          <Text style={[styles.cardLine, styles.incomeSubLine]}>
-                            ~ {passiveIncomePerYearDisplay.toFixed(2)} {displayCurrency}
-                          </Text>
-                        </>
-                      )}
-
-                      {asset.category === "deposit" && (
-                        <>
-                          <Text style={styles.cardLine}>
-                            {t.principalAmount}: {convert(quantity, asset.currency, displayCurrency).toFixed(2)} {displayCurrency}
-                          </Text>
-
-                          <Text style={styles.cardLine}>
-                            {t.annualRate}: {rate.toFixed(2)}%
-                          </Text>
-
-                          <Text style={[styles.cardLine, styles.incomeLine]}>
-                            {t.passiveIncomePerYear}: {passiveIncomeNativeDeposit.toFixed(2)} {asset.currency}
-                          </Text>
-
-                          <Text style={[styles.cardLine, styles.incomeSubLine]}>
-                            ~ {passiveIncomePerYearDisplay.toFixed(2)} {displayCurrency}
-                          </Text>
-                        </>
-                      )}
-
-                      {asset.category === "cash" && (
-                        <Text style={styles.cardLine}>
-                          {t.principalAmount}: {convert(quantity, asset.currency, displayCurrency).toFixed(2)} {displayCurrency}
-                        </Text>
-                      )}
-
-                      <View style={styles.actionsRow}>
-                        <Pressable key={item.id}
-                          style={styles.editButton}
-                          onPress={() =>
-                            router.push({
-                              pathname: "/add-asset",
-                              params: { assetId: asset.id },
-                            })
-                          }
-                        >
-                          <Text style={styles.actionText}>{t.edit}</Text>
-                        </Pressable>
-
-                        <Pressable key={item.id}
-                          style={styles.deleteButton}
-                          onPress={() => deleteAsset(asset.id)}
-                        >
-                          <Text style={styles.actionText}>{t.delete}</Text>
-                        </Pressable>
+                        </View>
                       </View>
                     </Pressable>
                   );
                 })}
               </View>
-            ))}
-          </ScrollView>
-        )}
+            ))
+          )}
+        </View>
 
-        <Pressable key={item.id}
-          style={styles.addButton}
-          onPress={() => router.push("/add-asset")}
+        <View style={styles.cashMiniWrap}>
+          <View style={styles.cashMiniCard}>
+            <View style={styles.cashMiniLeft}>
+              <MaterialCommunityIcons name="cash" size={16} color="#22C55E" />
+              <View>
+                <Text style={styles.cashMiniTitle}>{copy.cashTitle}</Text>
+                <Text style={styles.cashMiniText}>{copy.cashText}</Text>
+              </View>
+            </View>
+
+            <View style={styles.cashMiniActions}>
+              <Pressable onPress={() => setShowCashHelp(true)} hitSlop={8}>
+                <MaterialCommunityIcons
+                  name="help-circle-outline"
+                  size={18}
+                  color="#94A3B8"
+                />
+              </Pressable>
+
+              <Pressable style={styles.cashMiniButton} onPress={handleAddCash}>
+                <MaterialCommunityIcons name="plus" size={14} color="#FFFFFF" />
+              </Pressable>
+            </View>
+          </View>
+        </View>
+
+        <Modal
+          visible={showCashHelp}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowCashHelp(false)}
         >
-          <Text style={styles.addText}>{t.addAsset}</Text>
-        </Pressable>
-      </View>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalCard}>
+              <Text style={styles.modalTitle}>{copy.cashTitle}</Text>
+              <Text style={styles.modalText}>{t.cashHelpText ?? copy.cashText}</Text>
+
+              <Pressable
+                style={styles.modalCloseButton}
+                onPress={() => setShowCashHelp(false)}
+              >
+                <Text style={styles.modalCloseButtonText}>{copy.ok}</Text>
+              </Pressable>
+            </View>
+          </View>
+        </Modal>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#0f1115" },
-  container: { flex: 1, padding: 24, backgroundColor: "#0f1115" },
-
-  title: { fontSize: 28, fontWeight: "700", marginBottom: 16, color: "white" },
-  total: { fontSize: 20, marginBottom: 16, color: "white" },
-
-  cashBox: {
-    backgroundColor: "#1c2230",
-    padding: 14,
-    borderRadius: 12,
-    marginBottom: 16,
-  },
-
-  cashHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-
-  cashTitle: {
-    color: "white",
-    fontWeight: "600",
-  },
-
-  helpButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "#3b4252",
-    backgroundColor: "#111827",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  helpButtonText: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "700",
-  },
-
-  cashRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-
-  cashInput: {
+  safe: {
     flex: 1,
-    backgroundColor: "#111827",
-    padding: 10,
-    borderRadius: 8,
-    color: "white",
-    marginRight: 10,
+    backgroundColor: "#050816",
   },
-
-  cashButton: {
-    width: 44,
-    height: 44,
-    backgroundColor: "#2f6fed",
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.7)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 24,
-  },
-
-  modalBox: {
-    width: "100%",
-    backgroundColor: "#1c2230",
+  content: {
     padding: 20,
-    borderRadius: 14,
+    paddingBottom: 150,
+    gap: 16,
   },
-
-  modalTitle: {
-    color: "white",
-    fontSize: 20,
-    fontWeight: "700",
-    marginBottom: 12,
-  },
-
-  modalText: {
-    color: "#c9d1d9",
-    fontSize: 15,
-    lineHeight: 22,
-    marginBottom: 16,
-  },
-
-  modalCloseButton: {
-    alignSelf: "flex-end",
-    backgroundColor: "#2f6fed",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-
-  modalCloseButtonText: {
-    color: "white",
-    fontWeight: "600",
-  },
-
-  empty: { fontSize: 16, opacity: 0.6, marginBottom: 24, color: "white" },
-
-  list: { paddingBottom: 12 },
-  groupWrap: { marginBottom: 18 },
-  groupTitle: { color: "#c9d1d9", fontSize: 18, fontWeight: "700", marginBottom: 10 },
-
-  card: {
-    backgroundColor: "#1c2230",
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-  },
-
-  headerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 10,
-  },
-
-  logoWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#111827",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-    overflow: "hidden",
-  },
-
-  logo: {
-    width: 28,
-    height: 28,
-  },
-
-  headerTextWrap: {
-    flex: 1,
-  },
-
-  cardTitle: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-
-  cardLine: {
-    color: "#8b93a7",
-    marginBottom: 4,
-  },
-
-  incomeLine: {
-    color: "#3fb950",
+  header: {
     marginBottom: 2,
   },
-
-  incomeSubLine: {
-    color: "#8fd19e",
-    marginBottom: 4,
+  title: {
+    fontSize: 34,
+    fontWeight: "800",
+    color: "#F8FAFC",
   },
-
-  actionsRow: {
+  subtitle: {
+    marginTop: 6,
+    fontSize: 14,
+    color: "#94A3B8",
+  },
+  topRow: {
+    marginBottom: 2,
+  },
+  addAssetButton: {
+    borderRadius: 18,
+    overflow: "hidden",
+  },
+  addAssetGradient: {
+    height: 52,
+    borderRadius: 18,
     flexDirection: "row",
-    marginTop: 12,
-  },
-
-  editButton: {
-    backgroundColor: "#1d4ed8",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    marginRight: 10,
-  },
-
-  deleteButton: {
-    backgroundColor: "#7f1d1d",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-  },
-
-  actionText: {
-    color: "white",
-    fontWeight: "600",
-  },
-
-  addButton: {
-    backgroundColor: "#2f6fed",
-    padding: 14,
-    borderRadius: 8,
     alignItems: "center",
-    marginTop: 12,
+    justifyContent: "center",
+    gap: 8,
   },
-
-  addText: {
-    color: "white",
-    fontWeight: "600",
+  addAssetText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  sectionCard: {
+    backgroundColor: "rgba(15, 23, 42, 0.68)",
+    borderRadius: 24,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: "rgba(148,163,184,0.14)",
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#F8FAFC",
+    marginBottom: 12,
+  },
+  groupBlock: {
+    marginTop: 10,
+  },
+  groupTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#94A3B8",
+    letterSpacing: 1.4,
+    marginBottom: 10,
+  },
+  assetCard: {
+    position: "relative",
+    overflow: "hidden",
+    backgroundColor: "rgba(17, 24, 39, 0.70)",
+    borderRadius: 20,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "rgba(148,163,184,0.12)",
+    marginBottom: 12,
+  },
+  assetGlassGlow: {
+    position: "absolute",
+    top: -18,
+    right: -18,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: "rgba(59,130,246,0.10)",
+  },
+  assetTopRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  assetLeft: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  assetIconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: "rgba(59,130,246,0.14)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  assetName: {
     fontSize: 16,
+    fontWeight: "700",
+    color: "#F8FAFC",
+  },
+  assetMeta: {
+    marginTop: 2,
+    fontSize: 12,
+    color: "#94A3B8",
+  },
+  assetRight: {
+    alignItems: "flex-end",
+  },
+  assetValue: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#F8FAFC",
+  },
+  assetProfit: {
+    marginTop: 4,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  assetStatsRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 14,
+  },
+  statBox: {
+    flex: 1,
+    backgroundColor: "rgba(11, 18, 32, 0.88)",
+    borderRadius: 14,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: "rgba(148,163,184,0.10)",
+  },
+  statLabel: {
+    fontSize: 11,
+    color: "#94A3B8",
+    marginBottom: 6,
+  },
+  statValue: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#E5E7EB",
+  },
+  emptyText: {
+    color: "#94A3B8",
+    fontSize: 14,
+    marginTop: 4,
+  },
+  cashMiniWrap: {
+    marginTop: 2,
+  },
+  cashMiniCard: {
+    backgroundColor: "rgba(11, 18, 32, 0.44)",
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: "rgba(148,163,184,0.08)",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  cashMiniLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    flex: 1,
+  },
+  cashMiniTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#E5E7EB",
+  },
+  cashMiniText: {
+    marginTop: 2,
+    fontSize: 12,
+    color: "#94A3B8",
+  },
+  cashMiniActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginLeft: 12,
+  },
+  cashMiniButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "#2563EB",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(2,6,23,0.72)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+  },
+  modalCard: {
+    width: "100%",
+    borderRadius: 22,
+    backgroundColor: "#0B1220",
+    padding: 20,
+    borderWidth: 1,
+    borderColor: "#1E293B",
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#F8FAFC",
+    marginBottom: 10,
+  },
+  modalText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: "#CBD5E1",
+  },
+  modalCloseButton: {
+    marginTop: 18,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: "#2563EB",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalCloseButtonText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "700",
   },
 });
-

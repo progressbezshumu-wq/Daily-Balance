@@ -1,477 +1,433 @@
-﻿import { View, Text, TextInput, StyleSheet, Pressable, FlatList, ScrollView } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "expo-router";
-import { router, useLocalSearchParams } from "expo-router";
-
-import { assetsCatalog } from "../src/constants/assetsCatalog";
+import React, { useMemo, useState } from "react";
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import { Stack, router } from "expo-router";
 import { useFinanceStore } from "../src/store/financeStore";
 import { useSettingsStore } from "../src/store/settingsStore";
-import { translations } from "../src/i18n/translations";
 
-const assetTypes = [
-  { id: "stock" },
-  { id: "etf" },
-  { id: "crypto" },
-  { id: "staking" },
-  { id: "deposit" },
-  { id: "cash" },
-] as const;
+type AssetCategory = "stock" | "etf" | "crypto" | "staking" | "deposit" | "cash";
+type Currency = "EUR" | "USD" | "UAH";
 
-function parseLocaleNumber(value: string): number {
-  return Number(value.replace(",", ".").trim());
-}
+const BG = "#050816";
+const CARD = "rgba(15,23,42,0.82)";
+const BORDER = "rgba(148,163,184,0.18)";
+const TEXT = "#E2E8F0";
+const MUTED = "#94A3B8";
+const ACCENT = "#3B82F6";
 
-function getAssetTypeLabel(type: string, t: any) {
-  if (type === "stock") return t.stock;
-  if (type === "etf") return t.etf;
-  if (type === "crypto") return t.crypto;
-  if (type === "staking") return t.staking;
-  if (type === "deposit") return t.deposit;
-  if (type === "cash") return t.cash;
-  return type;
-}
+const categories: AssetCategory[] = ["stock", "etf", "crypto", "staking", "deposit", "cash"];
+const currencies: Currency[] = ["EUR", "USD", "UAH"];
 
 export default function AddAssetScreen() {
-  const router = useRouter();
-  const { assetId } = useLocalSearchParams<{ assetId?: string }>();
+  const addAsset = useFinanceStore((state: any) => state.addAsset);
+  const language = useSettingsStore((state: any) => state.language) ?? "en";
+  const displayCurrency = useSettingsStore((state: any) => state.displayCurrency) ?? "EUR";
 
-  const assets = useFinanceStore((state) => state.assets);
-  const addAsset = useFinanceStore((state) => state.addAsset);
-  const updateAsset = useFinanceStore((state) => state.updateAsset);
-
-  const language = useSettingsStore((state) => state.language) ?? "en";
-  const t = translations[language];
-
-  const existingAsset = useMemo(() => {
-    return assets.find((item) => item.id === assetId);
-  }, [assets, assetId]);
-
-  const isEditMode = Boolean(existingAsset);
-
-  const [category, setCategory] = useState<any>("crypto");
-  const [search, setSearch] = useState("");
-  const [selectedAsset, setSelectedAsset] = useState<any>(null);
-  const [customName, setCustomName] = useState("");
+  const [category, setCategory] = useState<AssetCategory>("stock");
+  const [currency, setCurrency] = useState<Currency>(displayCurrency);
+  const [symbol, setSymbol] = useState("");
+  const [name, setName] = useState("");
   const [quantity, setQuantity] = useState("");
   const [buyPrice, setBuyPrice] = useState("");
+  const [currentPrice, setCurrentPrice] = useState("");
   const [rate, setRate] = useState("");
 
-  useEffect(() => {
-    if (!existingAsset) return;
+  const t = useMemo(() => {
+    if (language === "uk") {
+      return {
+        title: "Додати актив",
+        subtitle: "Новий актив",
+        category: "Категорія",
+        symbol: "Символ",
+        name: "Назва",
+        quantity: "Кількість",
+        buyPrice: "Ціна купівлі",
+        currentPrice: "Поточна ціна",
+        rate: "Річна ставка, %",
+        currency: "Валюта",
+        save: "Зберегти",
+        back: "Назад",
+        fillRequired: "Заповни обовʼязкові поля",
+        invalidNumber: "Перевір числові значення",
+        success: "Актив додано",
+        stock: "Акції",
+        etf: "ETF",
+        crypto: "Крипто",
+        staking: "Стейкінг",
+        deposit: "Депозит",
+        cash: "Готівка",
+      };
+    }
 
-    const matchedCatalogAsset =
-      assetsCatalog.find(
-        (item) =>
-          item.symbol === existingAsset.symbol &&
-          item.type === existingAsset.category
-      ) ??
-      assetsCatalog.find((item) => item.symbol === existingAsset.symbol) ??
-      null;
+    if (language === "de") {
+      return {
+        title: "Asset hinzufügen",
+        subtitle: "Neues Asset",
+        category: "Kategorie",
+        symbol: "Symbol",
+        name: "Name",
+        quantity: "Menge",
+        buyPrice: "Kaufpreis",
+        currentPrice: "Aktueller Preis",
+        rate: "Jahresrate, %",
+        currency: "Währung",
+        save: "Speichern",
+        back: "Zurück",
+        fillRequired: "Pflichtfelder ausfüllen",
+        invalidNumber: "Numerische Werte prüfen",
+        success: "Asset hinzugefügt",
+        stock: "Aktien",
+        etf: "ETF",
+        crypto: "Krypto",
+        staking: "Staking",
+        deposit: "Einlage",
+        cash: "Bargeld",
+      };
+    }
 
-    setSelectedAsset(
-      matchedCatalogAsset ?? {
-        symbol: existingAsset.symbol,
-        name: existingAsset.name,
-        price: existingAsset.currentPrice,
-      }
-    );
+    return {
+      title: "Add Asset",
+      subtitle: "New asset",
+      category: "Category",
+      symbol: "Symbol",
+      name: "Name",
+      quantity: "Quantity",
+      buyPrice: "Buy Price",
+      currentPrice: "Current Price",
+      rate: "Annual Rate, %",
+      currency: "Currency",
+      save: "Save",
+      back: "Back",
+      fillRequired: "Fill required fields",
+      invalidNumber: "Check numeric values",
+      success: "Asset added",
+      stock: "Stocks",
+      etf: "ETF",
+      crypto: "Crypto",
+      staking: "Staking",
+      deposit: "Deposit",
+      cash: "Cash",
+    };
+  }, [language]);
 
-    setCustomName(existingAsset.name ?? "");
-    setQuantity(String(existingAsset.quantity ?? ""));
-    setBuyPrice(
-      existingAsset.category === "cash" || existingAsset.category === "deposit"
-        ? ""
-        : String(existingAsset.buyPrice ?? "")
-    );
-    setRate(String(existingAsset.rate ?? 0));
-    setCategory(existingAsset.category ?? "crypto");
-  }, [existingAsset]);
+  const parseNumber = (value: string) => {
+    const n = Number(String(value).replace(",", ".").trim());
+    return Number.isFinite(n) ? n : NaN;
+  };
 
-  const catalogType = category === "deposit" ? null : category;
-
-  const filteredAssets = assetsCatalog.filter((a) => {
-    if (catalogType && a.type !== catalogType) return false;
-
-    return (
-      a.name.toLowerCase().includes(search.toLowerCase()) ||
-      a.symbol.toLowerCase().includes(search.toLowerCase())
-    );
-  });
-
-  const isDepositType = category === "deposit";
-  const isCashType = category === "cash";
-  const isManualType = isDepositType;
-
-  function handleSave() {
-  const quantityValue = parseLocaleNumber(quantity);
-
-  if (!quantityValue || quantityValue <= 0) {
-    return;
-  }
-    const parsedQuantity = parseLocaleNumber(quantity);
-    const parsedRate = rate ? parseLocaleNumber(rate) : 0;
-
-    if (Number.isNaN(parsedQuantity)) return;
-
-    if (isDepositType) {
-      if (!customName.trim()) return;
-      if (Number.isNaN(parsedRate)) return;
-
-      if (isEditMode && existingAsset) {
-        updateAsset(existingAsset.id, {
-          symbol: "DEP",
-          name: customName.trim(),
-          quantity: parsedQuantity,
-          buyPrice: 1,
-          currentPrice: 1,
-          rate: parsedRate,
-          category: "deposit",
-        });
-      } else {
-        addAsset({
-          symbol: "DEP",
-          name: customName.trim(),
-          quantity: parsedQuantity,
-          buyPrice: 1,
-          currentPrice: 1,
-          rate: parsedRate,
-          category: "deposit",
-        });
-      }
-
-      router.back();
+  const handleSave = () => {
+    if (!symbol.trim() || !name.trim() || !quantity.trim()) {
+      Alert.alert(t.fillRequired);
       return;
     }
 
-    if (!selectedAsset || !quantity) return;
+    const q = parseNumber(quantity);
+    const bp = buyPrice.trim() ? parseNumber(buyPrice) : 0;
+    const cp = currentPrice.trim() ? parseNumber(currentPrice) : 0;
+    const r = rate.trim() ? parseNumber(rate) : 0;
 
-    const parsedBuyPrice = isCashType ? 1 : parseLocaleNumber(buyPrice);
-
-    if (Number.isNaN(parsedBuyPrice) || Number.isNaN(parsedRate)) {
+    if (Number.isNaN(q) || Number.isNaN(bp) || Number.isNaN(cp) || Number.isNaN(r)) {
+      Alert.alert(t.invalidNumber);
       return;
     }
 
-    const nextCurrentPrice = isCashType ? 1 : selectedAsset.price;
+    const asset = {
+      id: String(Date.now()),
+      symbol: symbol.trim().toUpperCase(),
+      name: name.trim(),
+      quantity: q,
+      buyPrice: category === "cash" ? 1 : category === "deposit" ? cp : bp,
+      currentPrice: category === "cash" ? 1 : cp,
+      rate: category === "staking" || category === "deposit" ? r : 0,
+      category,
+      currency,
+    };
 
-    if (isEditMode && existingAsset) {
-      updateAsset(existingAsset.id, {
-        symbol: selectedAsset.symbol,
-        name: selectedAsset.name,
-        quantity: parsedQuantity,
-        buyPrice: parsedBuyPrice,
-        currentPrice: nextCurrentPrice,
-        rate: parsedRate,
-        category,
-      });
-    } else {
-      addAsset({
-        symbol: selectedAsset.symbol,
-        name: selectedAsset.name,
-        quantity: parsedQuantity,
-        buyPrice: parsedBuyPrice,
-        currentPrice: nextCurrentPrice,
-        rate: parsedRate,
-        category,
-      });
-    }
-
+    addAsset(asset);
+    Alert.alert(t.success);
     router.back();
-  }
+  };
 
-  const currentPrice = isCashType || isDepositType ? 1 : selectedAsset?.price ?? 0;
-
-  const parsedQuantityPreview = parseLocaleNumber(quantity);
-  const parsedBuyPricePreview = isCashType || isDepositType ? 1 : parseLocaleNumber(buyPrice);
-
-  const currentValue =
-    !Number.isNaN(parsedQuantityPreview)
-      ? parsedQuantityPreview * currentPrice
-      : 0;
-
-  const buyValue =
-    !Number.isNaN(parsedQuantityPreview) && !Number.isNaN(parsedBuyPricePreview)
-      ? parsedQuantityPreview * parsedBuyPricePreview
-      : 0;
-
-  const profit = currentValue - buyValue;
-
-  const showRateField = category === "deposit" || category === "staking";
-  const showProfitBlock =
-    category === "stock" ||
-    category === "etf" ||
-    category === "crypto" ||
-    category === "staking";
+  const showBuyPrice = category !== "cash" && category !== "deposit";
+  const showCurrentPrice = category !== "cash";
+  const showRate = category === "staking" || category === "deposit";
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-        alwaysBounceVertical
-        bounces
+    <View style={styles.root}>
+      <Stack.Screen options={{ headerShown: false }} />
+      <KeyboardAvoidingView
+        style={styles.root}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <Text style={styles.title}>
-          {isEditMode ? t.edit : t.addAsset}
-        </Text>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.hero}>
+            <View style={styles.heroGlow} />
+            <Text style={styles.subtitle}>{t.subtitle}</Text>
+            <Text style={styles.title}>{t.title}</Text>
+          </View>
 
-        <Text style={styles.section}>{t.assetType}</Text>
+          <View style={styles.card}>
+            <Text style={styles.section}>{t.category}</Text>
+            <View style={styles.rowWrap}>
+              {categories.map((item) => {
+                const active = item === category;
+                return (
+                  <Pressable
+                    key={item}
+                    onPress={() => setCategory(item)}
+                    style={[styles.chip, active && styles.chipActive]}
+                  >
+                    <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                      {t[item]}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
 
-        <View style={styles.typeRow}>
-          {assetTypes.map((type) => (
-            <Pressable
-              key={type.id}
-              style={[
-                styles.typeButton,
-                category === type.id && styles.typeActive,
-              ]}
-              onPress={() => {
-                setCategory(type.id);
-                if (!isEditMode) {
-                  setSelectedAsset(null);
-                  setSearch("");
-                  setCustomName("");
-                  setQuantity("");
-                  setBuyPrice("");
-                  setRate("");
-                }
-              }}
-            >
-              <Text style={styles.typeText}>{getAssetTypeLabel(type.id, t)}</Text>
+          <View style={styles.card}>
+            <Field label={t.symbol} value={symbol} onChangeText={(v) => setSymbol(v.toUpperCase())} />
+            <Field label={t.name} value={name} onChangeText={setName} />
+            <Field label={t.quantity} value={quantity} onChangeText={setQuantity} keyboardType="decimal-pad" />
+
+            {showBuyPrice ? (
+              <Field label={t.buyPrice} value={buyPrice} onChangeText={setBuyPrice} keyboardType="decimal-pad" />
+            ) : null}
+
+            {showCurrentPrice ? (
+              <Field label={t.currentPrice} value={currentPrice} onChangeText={setCurrentPrice} keyboardType="decimal-pad" />
+            ) : null}
+
+            {showRate ? (
+              <Field label={t.rate} value={rate} onChangeText={setRate} keyboardType="decimal-pad" />
+            ) : null}
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.section}>{t.currency}</Text>
+            <View style={styles.currencyRow}>
+              {currencies.map((item) => {
+                const active = item === currency;
+                return (
+                  <Pressable
+                    key={item}
+                    onPress={() => setCurrency(item)}
+                    style={[styles.currencyChip, active && styles.currencyChipActive]}
+                  >
+                    <Text style={[styles.currencyText, active && styles.currencyTextActive]}>
+                      {item}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+
+          <View style={styles.actions}>
+            <Pressable style={styles.backButton} onPress={() => router.back()}>
+              <Text style={styles.backButtonText}>{t.back}</Text>
             </Pressable>
-          ))}
-        </View>
 
-        {!selectedAsset && !isEditMode && !isManualType && (
-          <>
-            <TextInput
-              style={styles.input}
-              placeholder={t.searchAsset + " (BTC, Apple...)"}
-              placeholderTextColor="#888"
-              value={search}
-              onChangeText={setSearch}
-            />
-
-            <FlatList
-              data={filteredAssets}
-              keyExtractor={(item) => item.id}
-              scrollEnabled={false}
-              renderItem={({ item }) => (
-                <Pressable
-                  style={styles.assetItem}
-                  onPress={() => setSelectedAsset(item)}
-                >
-                  <Text style={styles.assetText}>
-                    {item.symbol} — {item.name}
-                  </Text>
-                </Pressable>
-              )}
-            />
-          </>
-        )}
-
-        {isDepositType && (
-          <>
-            <TextInput
-              style={styles.input}
-              placeholder={t.depositName}
-              placeholderTextColor="#888"
-              value={customName}
-              onChangeText={setCustomName}
-            />
-
-            <TextInput
-              style={styles.input}
-              placeholder={t.principalAmount}
-              placeholderTextColor="#888"
-              keyboardType="decimal-pad"
-              value={quantity}
-              onChangeText={setQuantity}
-            />
-
-            <TextInput
-              style={styles.input}
-              placeholder={t.annualRateOptional}
-              placeholderTextColor="#888"
-              keyboardType="decimal-pad"
-              value={rate}
-              onChangeText={setRate}
-            />
-
-            <Text style={styles.info}>
-              {t.currentValue}: {currentValue.toFixed(2)} EUR
-            </Text>
-
-            <Text style={styles.info}>
-              {t.passiveIncomePerYear}: {(currentValue * ((rate ? parseLocaleNumber(rate) : 0) / 100)).toFixed(2)} EUR
-            </Text>
-
-            <Pressable style={styles.button} onPress={handleSave}>
-              <Text style={styles.buttonText}>
-                {isEditMode ? t.edit : t.addAsset}
-              </Text>
+            <Pressable style={styles.saveButton} onPress={handleSave}>
+              <Text style={styles.saveButtonText}>{t.save}</Text>
             </Pressable>
-          </>
-        )}
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
+  );
+}
 
-        {selectedAsset && !isDepositType && (
-          <>
-            <Text style={styles.selected}>
-              {selectedAsset.symbol} — {selectedAsset.name}
-            </Text>
-
-            <TextInput
-              style={styles.input}
-              placeholder={isCashType ? t.principalAmount : t.quantity}
-              placeholderTextColor="#888"
-              keyboardType="decimal-pad"
-              value={quantity}
-              onChangeText={setQuantity}
-            />
-
-            {!isCashType && (
-              <TextInput
-                style={styles.input}
-                placeholder={t.buyPricePerUnit}
-                placeholderTextColor="#888"
-                keyboardType="decimal-pad"
-                value={buyPrice}
-                onChangeText={setBuyPrice}
-              />
-            )}
-
-            {showRateField && (
-              <TextInput
-                style={styles.input}
-                placeholder={t.annualRateOptional}
-                placeholderTextColor="#888"
-                keyboardType="decimal-pad"
-                value={rate}
-                onChangeText={setRate}
-              />
-            )}
-
-            <Text style={styles.info}>
-              {t.currentPrice}: {currentPrice} EUR
-            </Text>
-
-            <Text style={styles.info}>
-              {t.currentValue}: {currentValue.toFixed(2)} EUR
-            </Text>
-
-            {showProfitBlock && (
-              <Text style={styles.info}>
-                {t.profitLoss}: {profit.toFixed(2)} EUR
-              </Text>
-            )}
-
-            <Pressable style={styles.button} onPress={handleSave}>
-              <Text style={styles.buttonText}>
-                {isEditMode ? t.edit : t.addAsset}
-              </Text>
-            </Pressable>
-          </>
-        )}
-      </ScrollView>
-    </SafeAreaView>
+function Field({
+  label,
+  value,
+  onChangeText,
+  keyboardType,
+}: {
+  label: string;
+  value: string;
+  onChangeText: (value: string) => void;
+  keyboardType?: "default" | "decimal-pad";
+}) {
+  return (
+    <View style={styles.field}>
+      <Text style={styles.label}>{label}</Text>
+      <TextInput
+        value={value}
+        onChangeText={onChangeText}
+        keyboardType={keyboardType ?? "default"}
+        placeholderTextColor={MUTED}
+        style={styles.input}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: {
+  root: {
     flex: 1,
-    backgroundColor: "#0f1115",
+    backgroundColor: BG,
   },
-
-  container: {
-    flex: 1,
-    backgroundColor: "#0f1115",
-  },
-
   content: {
-    padding: 24,
+    padding: 20,
+    paddingTop: 28,
     paddingBottom: 40,
+    gap: 16,
   },
-
+  hero: {
+    backgroundColor: CARD,
+    borderWidth: 1,
+    borderColor: BORDER,
+    borderRadius: 28,
+    padding: 20,
+    overflow: "hidden",
+  },
+  heroGlow: {
+    position: "absolute",
+    width: 180,
+    height: 180,
+    borderRadius: 999,
+    backgroundColor: "rgba(59,130,246,0.14)",
+    top: -70,
+    right: -40,
+  },
+  subtitle: {
+    color: MUTED,
+    fontSize: 12,
+    marginBottom: 8,
+  },
   title: {
+    color: "#F8FAFC",
     fontSize: 28,
-    fontWeight: "700",
-    marginBottom: 20,
-    color: "white",
+    fontWeight: "800",
   },
-
+  card: {
+    backgroundColor: CARD,
+    borderWidth: 1,
+    borderColor: BORDER,
+    borderRadius: 24,
+    padding: 16,
+  },
   section: {
-    color: "#8b93a7",
-    marginBottom: 10,
+    color: "#E2E8F0",
+    fontSize: 15,
+    fontWeight: "700",
+    marginBottom: 12,
   },
-
-  typeRow: {
+  rowWrap: {
     flexDirection: "row",
     flexWrap: "wrap",
-    marginBottom: 20,
+    gap: 10,
   },
-
-  typeButton: {
-    backgroundColor: "#1c2230",
-    padding: 10,
-    borderRadius: 8,
-    marginRight: 8,
-    marginBottom: 8,
+  chip: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: BORDER,
+    backgroundColor: "rgba(15,23,42,0.96)",
   },
-
-  typeActive: {
-    backgroundColor: "#2f6fed",
+  chipActive: {
+    backgroundColor: "rgba(59,130,246,0.18)",
+    borderColor: "rgba(59,130,246,0.42)",
   },
-
-  typeText: {
-    color: "white",
-  },
-
-  input: {
-    backgroundColor: "#1c2230",
-    padding: 14,
-    borderRadius: 8,
-    marginBottom: 16,
-    color: "white",
-  },
-
-  assetItem: {
-    padding: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: "#222",
-  },
-
-  assetText: {
-    color: "white",
-    fontSize: 16,
-  },
-
-  selected: {
-    fontSize: 20,
-    marginBottom: 16,
-    color: "white",
-  },
-
-  info: {
-    color: "#8b93a7",
-    marginBottom: 8,
-  },
-
-  button: {
-    backgroundColor: "#2f6fed",
-    padding: 14,
-    borderRadius: 8,
-    alignItems: "center",
-    marginTop: 12,
-  },
-
-  buttonText: {
-    color: "white",
+  chipText: {
+    color: "#CBD5E1",
+    fontSize: 13,
     fontWeight: "600",
   },
+  chipTextActive: {
+    color: "#FFFFFF",
+  },
+  field: {
+    marginBottom: 14,
+  },
+  label: {
+    color: MUTED,
+    fontSize: 13,
+    fontWeight: "600",
+    marginBottom: 8,
+  },
+  input: {
+    height: 52,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: BORDER,
+    backgroundColor: "rgba(15,23,42,0.96)",
+    paddingHorizontal: 16,
+    color: TEXT,
+    fontSize: 15,
+  },
+  currencyRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  currencyChip: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: BORDER,
+    backgroundColor: "rgba(15,23,42,0.96)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  currencyChipActive: {
+    backgroundColor: "rgba(59,130,246,0.18)",
+    borderColor: "rgba(59,130,246,0.42)",
+  },
+  currencyText: {
+    color: "#CBD5E1",
+    fontWeight: "700",
+    fontSize: 14,
+  },
+  currencyTextActive: {
+    color: "#FFFFFF",
+  },
+  actions: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  backButton: {
+    flex: 1,
+    height: 54,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: BORDER,
+    backgroundColor: "rgba(15,23,42,0.96)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  backButtonText: {
+    color: "#E2E8F0",
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  saveButton: {
+    flex: 1.2,
+    height: 54,
+    borderRadius: 20,
+    backgroundColor: ACCENT,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  saveButtonText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "800",
+  },
 });
-
-
-
