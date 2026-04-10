@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import {
+  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -11,9 +12,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
+import Svg, { Polyline } from "react-native-svg";
 import { useFinanceStore } from "../../src/store/financeStore";
 import { useSettingsStore } from "../../src/store/settingsStore";
 import { translations } from "../../src/i18n/translations";
+import { assetLogos } from "../../src/constants/assetLogos";
 
 type AssetItem = {
   id?: string;
@@ -46,7 +49,26 @@ function toSafeNumber(value: unknown): number {
 }
 
 function formatMoney(value: number, currency: string) {
-  return `${value.toFixed(2)} ${currency}`;
+  const n = Number(value);
+  const safe = Number.isFinite(n) ? n : 0;
+  return `${safe.toFixed(2)} ${currency}`;
+}
+
+const FX: Record<string, number> = {
+  EUR: 1,
+  USD: 0.93,
+  UAH: 0.022,
+};
+
+function convertLocal(value: number, from: string, to: string) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return 0;
+
+  const fromRate = FX[String(from || "EUR").toUpperCase()] ?? 1;
+  const toRate = FX[String(to || "EUR").toUpperCase()] ?? 1;
+
+  const eurValue = amount * fromRate;
+  return eurValue / toRate;
 }
 
 function getCategoryIcon(category: string) {
@@ -67,6 +89,66 @@ function getCategoryIcon(category: string) {
       return "wallet-outline";
   }
 }
+
+function getAssetLogo(symbol?: string) {
+  if (!symbol) return null;
+  const key = String(symbol).toUpperCase() as keyof typeof assetLogos;
+  return assetLogos[key] ?? null;
+}
+
+
+function getSparklineData(asset: MergedAsset) {
+  const base = toSafeNumber(asset.currentPrice) || 100;
+  const driftSeed = ((base - toSafeNumber(asset.buyPrice)) / (toSafeNumber(asset.buyPrice) || base || 1)) * 0.6;
+
+  return Array.from({ length: 20 }, (_, i) => {
+    const progress = i / 19;
+    const trend = base * driftSeed * (progress - 0.5);
+    const wave = Math.sin(i / 2.4) * base * 0.01;
+    const noise = Math.cos(i / 1.7) * base * 0.004;
+    return Math.max(0.0001, base + trend + wave + noise);
+  });
+}
+
+function MiniSparkline({
+  data,
+  color,
+}: {
+  data: number[];
+  color: string;
+}) {
+  const width = 132;
+  const height = 42;
+
+  const values = data.length > 1 ? data : [10, 11, 10.8, 11.4, 11.2, 11.8, 11.5, 12.0];
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+
+  const points = values
+    .map((v, i) => {
+      const x = (i / (values.length - 1)) * width;
+      const y = height - ((v - min) / range) * (height - 8) - 4;
+      return `${x},${y}`;
+    })
+    .join(" ");
+
+  return (
+    <View style={{ width: 132, height: 42, justifyContent: "center", alignItems: "center" }}>
+      <Svg width="132" height="42" viewBox={`0 0 ${width} ${height}`}>
+        <Polyline
+          points={points}
+          fill="none"
+          stroke={color}
+          strokeWidth="2.2"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+      </Svg>
+    </View>
+  );
+}
+
 
 function mergeAssets(list: AssetItem[]): MergedAsset[] {
   const map = new Map<string, MergedAsset>();
@@ -131,7 +213,8 @@ export default function AssetsScreen() {
       ? {
           title: "Активи",
           subtitle: "Головні позиції твого портфеля",
-          addAsset: "Додати актив",
+          addAsset: "Додати",
+          addAssetFull: "Додати актив",
           cashTitle: "Готівка",
           cashText: "Швидке додавання готівки",
           allAssets: "Список активів",
@@ -145,7 +228,8 @@ export default function AssetsScreen() {
       ? {
           title: "Vermögenswerte",
           subtitle: "Die Hauptpositionen deines Portfolios",
-          addAsset: "Asset hinzufügen",
+          addAsset: "Hinzufügen",
+          addAssetFull: "Asset hinzufügen",
           cashTitle: "Bargeld",
           cashText: "Bargeld schnell hinzufügen",
           allAssets: "Asset-Liste",
@@ -158,7 +242,8 @@ export default function AssetsScreen() {
       : {
           title: "Assets",
           subtitle: "Main positions of your portfolio",
-          addAsset: "Add asset",
+          addAsset: "Add",
+          addAssetFull: "Add asset",
           cashTitle: "Cash",
           cashText: "Quick cash entry",
           allAssets: "Assets list",
@@ -189,6 +274,10 @@ export default function AssetsScreen() {
     router.push("/add-asset");
   };
 
+  const handleAddAsset = () => {
+    router.push("/add-asset");
+  };
+
   return (
     <SafeAreaView style={styles.safe}>
       <LinearGradient
@@ -201,21 +290,62 @@ export default function AssetsScreen() {
           </View>
 
         <View style={styles.topRow}>
-          <Pressable style={styles.addAssetButton} onPress={() => router.push("/add-asset")}>
+          <Pressable style={styles.addAssetButton} onPress={handleAddAsset}>
             <LinearGradient
-              colors={["rgba(59,130,246,0.95)", "rgba(37,99,235,0.95)"]}
+              colors={["#3B82F6", "#2563EB"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.addAssetGradient}
             >
-              <MaterialCommunityIcons name="plus" size={18} color="#FFFFFF" />
+              <MaterialCommunityIcons name="plus" size={13} color="#FFFFFF" />
               <Text style={styles.addAssetText}>{copy.addAsset}</Text>
             </LinearGradient>
           </Pressable>
         </View>
 
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>{copy.allAssets}</Text>
+          
+<View style={{
+  flexDirection: "row",
+  gap: 8,
+  marginBottom: 8,
+  paddingHorizontal: 12,
+}}>
+  <View style={{
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: "rgba(59,130,246,0.12)"
+  }}>
+    <Text style={{ color: "#60A5FA", fontSize: 12, fontWeight: "700" }}>
+      ALL
+    </Text>
+  </View>
+
+  <View style={{
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: "rgba(148,163,184,0.08)"
+  }}>
+    <Text style={{ color: "#94A3B8", fontSize: 12 }}>
+      CRYPTO
+    </Text>
+  </View>
+
+  <View style={{
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: "rgba(148,163,184,0.08)"
+  }}>
+    <Text style={{ color: "#94A3B8", fontSize: 12 }}>
+      STOCKS
+    </Text>
+  </View>
+</View>
+
+<Text style={styles.sectionTitle}>{copy.allAssets}</Text>
 
           {groupedAssets.length === 0 ? (
             <Text style={styles.emptyText}>{copy.empty}</Text>
@@ -225,67 +355,92 @@ export default function AssetsScreen() {
                 <Text style={styles.groupTitle}>{group.category.toUpperCase()}</Text>
 
                 {group.items.map((asset, index) => {
-                  const value = asset.quantity * asset.currentPrice;
-                  const profit = (asset.currentPrice - asset.buyPrice) * asset.quantity;
+                  const nativeValue = asset.quantity * asset.currentPrice;
+                  const nativeProfit = (asset.currentPrice - asset.buyPrice) * asset.quantity;
+
+                  const currentPriceDisplay = convertLocal(
+                    asset.currentPrice,
+                    asset.currency,
+                    displayCurrency
+                  );
+
+                  const buyPriceDisplay = convertLocal(
+                    asset.buyPrice,
+                    asset.currency,
+                    displayCurrency
+                  );
+
+                  const value = convertLocal(
+                    nativeValue,
+                    asset.currency,
+                    displayCurrency
+                  );
+
+                  const profit = convertLocal(
+                    nativeProfit,
+                    asset.currency,
+                    displayCurrency
+                  );
+
                   const profitColor = profit >= 0 ? "#22C55E" : "#EF4444";
+                  const sparkline = getSparklineData(asset);
 
                   return (
                     <Pressable
                       key={`${asset.key}-${index}`}
-                      style={styles.assetCard}
-                      onPress={() => router.push("/add-asset")}
+                      style={{
+  paddingVertical: 10,
+  paddingHorizontal: 12,
+  borderBottomWidth: 1,
+  borderBottomColor: "rgba(148,163,184,0.08)"
+}}
+                      onPress={() => router.push({ pathname: "/asset-details", params: { assetId: asset.ids?.[0] ?? "" } })}
                     >
-                      <View style={styles.assetGlassGlow} />
+                      
 
                       <View style={styles.assetTopRow}>
                         <View style={styles.assetLeft}>
                           <View style={styles.assetIconWrap}>
-                            <MaterialCommunityIcons
-                              name={getCategoryIcon(asset.category)}
-                              size={20}
-                              color="#60A5FA"
-                            />
+                            {getAssetLogo(asset.symbol) ? (
+                              <Image
+                                source={getAssetLogo(asset.symbol)!}
+                                style={styles.assetLogo}
+                                resizeMode="contain"
+                              />
+                            ) : (
+                              <MaterialCommunityIcons
+                                name={getCategoryIcon(asset.category)}
+                                size={17}
+                                color="#60A5FA"
+                              />
+                            )}
                           </View>
 
-                          <View>
-                            <Text style={styles.assetName}>{asset.name}</Text>
-                            <Text style={styles.assetMeta}>
+                          <View style={styles.assetNameWrap}>
+                            <Text style={styles.assetSymbol} numberOfLines={1}>
                               {asset.symbol || asset.category.toUpperCase()}
+                            </Text>
+                            <Text style={styles.assetName} numberOfLines={1}>
+                              {asset.name}
                             </Text>
                           </View>
                         </View>
 
+                        <View style={styles.assetChartCol}>
+                          <MiniSparkline data={sparkline} color={profit >= 0 ? "#22C55E" : "#EF4444"} />
+                        </View>
+
                         <View style={styles.assetRight}>
-                          <Text style={styles.assetValue}>
-                            {formatMoney(value, displayCurrency)}
+                          <Text style={styles.assetPriceNow} numberOfLines={1}>
+                            {formatMoney(currentPriceDisplay || 0, displayCurrency)}
                           </Text>
-                          <Text style={[styles.assetProfit, { color: profitColor }]}>
-                            {profit >= 0 ? "+" : ""}
-                            {formatMoney(profit, displayCurrency)}
-                          </Text>
-                        </View>
-                      </View>
-
-                      <View style={styles.assetStatsRow}>
-                        <View style={styles.statBox}>
-                          <Text style={styles.statLabel}>{copy.qty}</Text>
-                          <Text style={styles.statValue}>{asset.quantity.toFixed(4)}</Text>
-                        </View>
-
-                        <View style={styles.statBox}>
-                          <Text style={styles.statLabel}>{copy.avgBuy}</Text>
-                          <Text style={styles.statValue}>
-                            {formatMoney(asset.buyPrice, asset.currency)}
-                          </Text>
-                        </View>
-
-                        <View style={styles.statBox}>
-                          <Text style={styles.statLabel}>{copy.price}</Text>
-                          <Text style={styles.statValue}>
-                            {formatMoney(asset.currentPrice, asset.currency)}
+                          <Text style={[styles.assetProfit, { color: profitColor }]} numberOfLines={1}>
+                            {profit >= 0 ? "+" : ""}{formatMoney(profit || 0, displayCurrency)}
                           </Text>
                         </View>
                       </View>
+
+                      
                     </Pressable>
                   );
                 })}
@@ -345,18 +500,21 @@ export default function AssetsScreen() {
   );
 }
 
+
+
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: "#050816",
   },
   content: {
-    padding: 20,
+    paddingHorizontal: 0,
+    paddingTop: 14,
     paddingBottom: 150,
-    gap: 16,
+    gap: 14,
   },
   header: {
-    marginBottom: 2,
+    marginBottom: 0,
   },
   title: {
     fontSize: 34,
@@ -369,147 +527,210 @@ const styles = StyleSheet.create({
     color: "#94A3B8",
   },
   topRow: {
-    marginBottom: 2,
+    marginBottom: 8,
+    alignItems: "flex-end",
+    paddingHorizontal: 10,
   },
   addAssetButton: {
-    borderRadius: 18,
+    alignSelf: "flex-end",
+    borderRadius: 999,
     overflow: "hidden",
+    shadowColor: "#2563EB",
+    shadowOpacity: 0.16,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
   },
   addAssetGradient: {
-    height: 52,
-    borderRadius: 18,
+    height: 28,
+    paddingHorizontal: 10,
+    borderRadius: 999,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
+    gap: 4,
   },
   addAssetText: {
     color: "#FFFFFF",
-    fontSize: 15,
-    fontWeight: "700",
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.1,
   },
   sectionCard: {
-    backgroundColor: "rgba(15, 23, 42, 0.68)",
-    borderRadius: 24,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: "rgba(148,163,184,0.14)",
+    backgroundColor: "transparent",
+    paddingHorizontal: 0,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: "800",
     color: "#F8FAFC",
     marginBottom: 12,
-  },
-  groupBlock: {
-    marginTop: 10,
-  },
-  groupTitle: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#94A3B8",
-    letterSpacing: 1.4,
-    marginBottom: 10,
-  },
-  assetCard: {
-    position: "relative",
-    overflow: "hidden",
-    backgroundColor: "rgba(17, 24, 39, 0.70)",
-    borderRadius: 20,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: "rgba(148,163,184,0.12)",
-    marginBottom: 12,
-  },
-  assetGlassGlow: {
-    position: "absolute",
-    top: -18,
-    right: -18,
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: "rgba(59,130,246,0.10)",
-  },
-  assetTopRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 12,
-  },
-  assetLeft: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  assetIconWrap: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    backgroundColor: "rgba(59,130,246,0.14)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  assetName: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#F8FAFC",
-  },
-  assetMeta: {
-    marginTop: 2,
-    fontSize: 12,
-    color: "#94A3B8",
-  },
-  assetRight: {
-    alignItems: "flex-end",
-  },
-  assetValue: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#F8FAFC",
-  },
-  assetProfit: {
-    marginTop: 4,
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  assetStatsRow: {
-    flexDirection: "row",
-    gap: 10,
-    marginTop: 14,
-  },
-  statBox: {
-    flex: 1,
-    backgroundColor: "rgba(11, 18, 32, 0.88)",
-    borderRadius: 14,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: "rgba(148,163,184,0.10)",
-  },
-  statLabel: {
-    fontSize: 11,
-    color: "#94A3B8",
-    marginBottom: 6,
-  },
-  statValue: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#E5E7EB",
+    paddingHorizontal: 12,
   },
   emptyText: {
     color: "#94A3B8",
     fontSize: 14,
-    marginTop: 4,
+    paddingHorizontal: 12,
   },
-  cashMiniWrap: {
+  groupBlock: {
+    marginBottom: 14,
+  },
+  groupTitle: {
+    color: "#7C8AA5",
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 1.1,
+    marginBottom: 8,
+    paddingHorizontal: 12,
+  },
+  assetCard: {
+    position: "relative",
+    overflow: "hidden",
+    backgroundColor: "transparent",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 0,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(148,163,184,0.08)",
+  },
+  assetGlassGlow: {
+    display: "none",
+  },
+  assetRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  assetTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  assetLeftCol: {
+    width: "28%",
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  assetLeft: {
+    width: "28%",
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  assetNameWrap: {
+    flex: 1,
+  },
+  assetChartCol: {
+    width: "38%",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  assetRightCol: {
+    width: "26%",
+    alignItems: "flex-end",
+    justifyContent: "center",
+  },
+  assetRight: {
+    width: "26%",
+    alignItems: "flex-end",
+    justifyContent: "center",
+  },
+  assetIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: "rgba(59,130,246,0.10)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: "rgba(96,165,250,0.14)",
+  },
+  assetLogo: {
+    width: 20,
+    height: 20,
+  },
+  assetSymbol: {
+    color: "#F8FAFC",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  assetName: {
+    color: "#7C8AA5",
+    fontSize: 11,
     marginTop: 2,
   },
+  assetMeta: {
+    color: "#7C8AA5",
+    fontSize: 11,
+    marginTop: 2,
+  },
+  assetPriceNow: {
+    color: "#F8FAFC",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  assetValue: {
+    color: "#F8FAFC",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  assetProfit: {
+    marginTop: 3,
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  assetStatsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 10,
+    gap: 8,
+  },
+  statBox: {
+    flex: 1,
+    backgroundColor: "rgba(15,23,42,0.55)",
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: "rgba(148,163,184,0.10)",
+  },
+  statLabel: {
+    color: "#7C8AA5",
+    fontSize: 11,
+    marginBottom: 4,
+  },
+  statValue: {
+    color: "#E2E8F0",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  assetBottomRow: {
+    marginTop: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+  },
+  assetBottomText: {
+    color: "#94A3B8",
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  assetBottomDot: {
+    color: "rgba(148,163,184,0.45)",
+    fontSize: 11,
+    marginHorizontal: 6,
+  },
+  cashMiniWrap: {
+    marginTop: 6,
+    paddingHorizontal: 12,
+  },
   cashMiniCard: {
-    backgroundColor: "rgba(11, 18, 32, 0.44)",
-    borderRadius: 16,
+    backgroundColor: "rgba(15, 23, 42, 0.68)",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "rgba(148,163,184,0.14)",
     paddingHorizontal: 14,
     paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: "rgba(148,163,184,0.08)",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -521,14 +742,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   cashMiniTitle: {
+    color: "#F8FAFC",
     fontSize: 14,
     fontWeight: "700",
-    color: "#E5E7EB",
   },
   cashMiniText: {
-    marginTop: 2,
-    fontSize: 12,
     color: "#94A3B8",
+    fontSize: 12,
+    marginTop: 2,
   },
   cashMiniActions: {
     flexDirection: "row",
@@ -537,50 +758,50 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   cashMiniButton: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     backgroundColor: "#2563EB",
     alignItems: "center",
     justifyContent: "center",
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(2,6,23,0.72)",
+    backgroundColor: "rgba(2,6,23,0.68)",
     alignItems: "center",
     justifyContent: "center",
     padding: 24,
   },
   modalCard: {
     width: "100%",
+    backgroundColor: "#0F172A",
     borderRadius: 22,
-    backgroundColor: "#0B1220",
-    padding: 20,
+    padding: 18,
     borderWidth: 1,
-    borderColor: "#1E293B",
+    borderColor: "rgba(148,163,184,0.14)",
   },
   modalTitle: {
+    color: "#F8FAFC",
     fontSize: 18,
     fontWeight: "800",
-    color: "#F8FAFC",
-    marginBottom: 10,
+    marginBottom: 8,
   },
   modalText: {
+    color: "#CBD5E1",
     fontSize: 14,
     lineHeight: 20,
-    color: "#CBD5E1",
   },
   modalCloseButton: {
-    marginTop: 18,
-    height: 44,
-    borderRadius: 14,
+    marginTop: 16,
+    alignSelf: "flex-end",
     backgroundColor: "#2563EB",
-    alignItems: "center",
-    justifyContent: "center",
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
   },
   modalCloseButtonText: {
     color: "#FFFFFF",
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: "700",
   },
 });

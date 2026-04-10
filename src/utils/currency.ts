@@ -1,110 +1,129 @@
-﻿export const SUPPORTED_CURRENCIES = [
-  "USD","EUR","JPY","GBP","CHF","CNY","CAD","AUD","NZD","SEK",
-  "NOK","DKK","PLN","CZK","HUF","RON","BGN","TRY","UAH","RUB",
-  "INR","BRL","MXN","ARS","CLP","COP","PEN","ZAR","EGP","MAD",
-  "NGN","KES","GHS","AED","SAR","QAR","KWD","BHD","OMR","ILS",
-  "SGD","HKD","KRW","TWD","THB","MYR","IDR","PHP","VND","PKR"
-] as const;
+export type Currency =
+  | "EUR"
+  | "USD"
+  | "UAH"
+  | "GBP"
+  | "CHF"
+  | "PLN"
+  | "CZK"
+  | "SEK"
+  | "NOK"
+  | "DKK"
+  | "HUF"
+  | "RON"
+  | "CNY";
 
-export type SupportedCurrency = (typeof SUPPORTED_CURRENCIES)[number];
+export const SUPPORTED_CURRENCIES: Currency[] = [
+  "EUR",
+  "USD",
+  "UAH",
+  "GBP",
+  "CHF",
+  "PLN",
+  "CZK",
+  "SEK",
+  "NOK",
+  "DKK",
+  "HUF",
+  "RON",
+  "CNY",
+];
 
-export const DEFAULT_BASE_CURRENCY: SupportedCurrency = "EUR";
-
-type RatesResponse = {
-  success?: boolean;
-  quotes?: Record<string, number>;
-};
-
-const FALLBACK_RATES: Record<SupportedCurrency, number> = {
-  USD: 1.1,
+const FALLBACK_RATES: Record<Currency, number> = {
   EUR: 1,
-  JPY: 161,
-  GBP: 0.86,
+  USD: 1.08,
+  UAH: 43,
+  GBP: 0.85,
   CHF: 0.96,
-  CNY: 7.9,
-  CAD: 1.48,
-  AUD: 1.67,
-  NZD: 1.8,
-  SEK: 11.2,
-  NOK: 11.5,
-  DKK: 7.46,
-  PLN: 4.3,
-  CZK: 25.2,
-  HUF: 395,
+  PLN: 4.30,
+  CZK: 25.0,
+  SEK: 11.0,
+  NOK: 11.0,
+  DKK: 7.45,
+  HUF: 390.0,
   RON: 4.97,
-  BGN: 1.96,
-  TRY: 38,
-  UAH: 42,
-  RUB: 101,
-  INR: 91,
-  BRL: 6.0,
-  MXN: 18.5,
-  ARS: 1160,
-  CLP: 1030,
-  COP: 4300,
-  PEN: 4.1,
-  ZAR: 20.4,
-  EGP: 53,
-  MAD: 10.8,
-  NGN: 1750,
-  KES: 145,
-  GHS: 17,
-  AED: 4.04,
-  SAR: 4.13,
-  QAR: 4.0,
-  KWD: 0.34,
-  BHD: 0.41,
-  OMR: 0.42,
-  ILS: 4.0,
-  SGD: 1.46,
-  HKD: 8.6,
-  KRW: 1480,
-  TWD: 35.5,
-  THB: 39,
-  MYR: 5.2,
-  IDR: 17800,
-  PHP: 63,
-  VND: 27200,
-  PKR: 308
+  CNY: 7.80,
 };
 
-export async function fetchLiveRates(): Promise<Record<SupportedCurrency, number>> {
+let cachedRates: Record<Currency, number> | null = null;
+let cachedAt = 0;
+const CACHE_MS = 1000 * 60 * 30;
+
+export async function fetchLiveRates(): Promise<Record<Currency, number>> {
+  const now = Date.now();
+
+  if (cachedRates && now - cachedAt < CACHE_MS) {
+    return cachedRates;
+  }
+
   try {
-    const currencies = SUPPORTED_CURRENCIES.join(",");
-    const response = await fetch(
-      `https://api.exchangerate.host/live?source=EUR&currencies=${currencies}`
-    );
+    const response = await fetch("https://api.exchangerate.host/latest?base=EUR");
+    const data = await response.json();
 
-    const data = (await response.json()) as RatesResponse;
-
-    const result = {} as Record<SupportedCurrency, number>;
+    const result: Record<Currency, number> = { ...FALLBACK_RATES };
 
     for (const currency of SUPPORTED_CURRENCIES) {
       if (currency === "EUR") {
-        result[currency] = 1;
+        result.EUR = 1;
         continue;
       }
 
-      const quote = Number(data?.quotes?.[`EUR${currency}`]);
-      result[currency] = Number.isFinite(quote) ? quote : FALLBACK_RATES[currency];
+      const raw = data?.rates?.[currency];
+      const rate = raw != null ? Number(raw) : NaN;
+
+      result[currency] = Number.isFinite(rate) && rate > 0 ? rate : FALLBACK_RATES[currency];
     }
 
-    result.EUR = 1;
+    cachedRates = result;
+    cachedAt = now;
     return result;
   } catch {
-    return FALLBACK_RATES;
+    cachedRates = { ...FALLBACK_RATES };
+    cachedAt = now;
+    return cachedRates;
   }
 }
 
-export function convertCurrency(
+export async function convertCurrency(
   value: number,
-  from: SupportedCurrency,
-  to: SupportedCurrency,
-  rates: Record<SupportedCurrency, number>
-) {
-  const fromRate = rates[from] ?? 1;
-  const toRate = rates[to] ?? 1;
+  from: string,
+  to: string
+): Promise<number> {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return 0;
 
-  const valueInEur = value / fromRate;
-  return valueInEur * toRate;
+  const fromCode = String(from || "EUR").toUpperCase() as Currency;
+  const toCode = String(to || "EUR").toUpperCase() as Currency;
+
+  if (fromCode === toCode) return amount;
+
+  const rates = await fetchLiveRates();
+
+  const fromRate = rates[fromCode] ?? 1;
+  const toRate = rates[toCode] ?? 1;
+
+  const eurValue = fromCode === "EUR" ? amount : amount / fromRate;
+  return toCode === "EUR" ? eurValue : eurValue * toRate;
+}
+
+export function convertCurrencySync(
+  value: number,
+  from: string,
+  to: string
+): number {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return 0;
+
+  const fromCode = String(from || "EUR").toUpperCase() as Currency;
+  const toCode = String(to || "EUR").toUpperCase() as Currency;
+
+  if (fromCode === toCode) return amount;
+
+  const rates = cachedRates ?? FALLBACK_RATES;
+
+  const fromRate = rates[fromCode] ?? 1;
+  const toRate = rates[toCode] ?? 1;
+
+  const eurValue = fromCode === "EUR" ? amount : amount / fromRate;
+  return toCode === "EUR" ? eurValue : eurValue * toRate;
 }

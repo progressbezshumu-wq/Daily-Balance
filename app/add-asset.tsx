@@ -1,3 +1,4 @@
+import Svg, { Polyline } from "react-native-svg";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
@@ -12,7 +13,6 @@ import {
   View,
 } from "react-native";
 import { Stack, router } from "expo-router";
-import Svg, { Path as SvgPath } from "react-native-svg";
 import { useFinanceStore } from "../src/store/financeStore";
 import { useSettingsStore } from "../src/store/settingsStore";
 import AssetSearch from "../src/components/AssetSearch";
@@ -43,6 +43,57 @@ function toSafeNumber(value: string) {
   return Number.isFinite(n) ? n : NaN;
 }
 
+function getQuickToggleCurrency(current: string) {
+  const c = String(current || "EUR").toUpperCase();
+  if (c === "EUR") return "USD";
+  if (c === "USD") return "EUR";
+  if (c === "UAH") return "USD";
+  return "EUR";
+}
+
+function MiniSparkline({
+  data,
+  color,
+}: {
+  data?: number[];
+  color: string;
+}) {
+  const width = 160;
+  const height = 56;
+  const values =
+    data && data.length > 1
+      ? data
+      : [10, 11, 10.7, 11.4, 11.1, 11.8, 11.5, 12.2, 12.0, 12.6, 12.4, 13.0];
+
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+
+  const points = values
+    .map((v, i) => {
+      const x = (i / (values.length - 1)) * width;
+      const y = height - ((v - min) / range) * (height - 8) - 4;
+      return `${x},${y}`;
+    })
+    .join(" ");
+
+  return (
+    <View style={{ width: "100%", height: 56, justifyContent: "center" }}>
+      <Svg width="100%" height="56" viewBox={`0 0 ${width} ${height}`}>
+        <Polyline
+          points={points}
+          fill="none"
+          stroke={color}
+          strokeWidth="2.5"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+      </Svg>
+    </View>
+  );
+}
+
+
 export default function AddAssetScreen() {
   const addAsset = useFinanceStore((state: any) => state.addAsset);
   const language = (useSettingsStore((state: any) => state.language) ?? "en") as AppLanguage;
@@ -51,7 +102,7 @@ export default function AddAssetScreen() {
   const [category, setCategory] = useState<AssetCategory>("stock");
   const [currency, setCurrency] = useState<Currency>(displayCurrency);
   const [selectedAsset, setSelectedAsset] = useState<any>(null);
-  const [snapshot, setSnapshot] = useState<{ price: number; changePercent24h: number } | null>(null);
+  const [snapshot, setSnapshot] = useState<{ price: number; changePercent24h: number; sparkline?: number[] } | null>(null);
   const [loadingPrice, setLoadingPrice] = useState(false);
   const [quantity, setQuantity] = useState("");
   const [buyPrice, setBuyPrice] = useState("");
@@ -67,6 +118,7 @@ export default function AddAssetScreen() {
         sectionDetails: "Параметри",
         category: "Категорія",
         currency: "Валюта",
+        switchCurrency: "Змінити",
         name: "Назва",
         symbol: "Тікер / символ",
         quantity: "Кількість",
@@ -95,6 +147,7 @@ export default function AddAssetScreen() {
         sectionDetails: "Parameter",
         category: "Kategorie",
         currency: "Währung",
+        switchCurrency: "Wechseln",
         name: "Name",
         symbol: "Ticker / Symbol",
         quantity: "Menge",
@@ -122,6 +175,7 @@ export default function AddAssetScreen() {
       sectionDetails: "Parameters",
       category: "Category",
       currency: "Currency",
+      switchCurrency: "Switch",
       name: "Name",
       symbol: "Ticker / Symbol",
       quantity: "Quantity",
@@ -144,24 +198,62 @@ export default function AddAssetScreen() {
   const showRate = category === "staking" || category === "deposit";
 
   useEffect(() => {
+    setCurrency(displayCurrency);
+  }, [displayCurrency]);
+
+  useEffect(() => {
     if (!selectedAsset) {
       setSnapshot(null);
       return;
     }
 
-    const loadPrice = async () => {
+    let alive = true;
+
+    const buildSparkline = (price: number, changePercent24h: number) => {
+      const base = price || 100;
+      const drift = (changePercent24h || 0) / 100;
+      return Array.from({ length: 24 }, (_, i) => {
+        const progress = i / 23;
+        const trend = base * drift * (progress - 0.5) * 0.6;
+        const wave = Math.sin(i / 2.8) * base * 0.006;
+        const noise = Math.cos(i / 1.9) * base * 0.003;
+        return Math.max(0.0001, base + trend + wave + noise);
+      });
+    };
+
+    const loadPrice = async (withLoader = false) => {
       try {
-        setLoadingPrice(true);
-        const s = await getCachedSnapshot(selectedAsset);
-        setSnapshot(s);
+        if (withLoader) setLoadingPrice(true);
+        const data = await getCachedSnapshot(selectedAsset);
+        const next = {
+          ...data,
+          sparkline:
+            data?.sparkline && data.sparkline.length > 1
+              ? data.sparkline
+              : buildSparkline(data?.price ?? 0, data?.changePercent24h ?? 0),
+        };
+
+        if (alive) setSnapshot(next);
       } catch {
-        setSnapshot({ price: 0, changePercent24h: 0 });
+        if (alive) {
+          setSnapshot({
+            price: 0,
+            changePercent24h: 0,
+            sparkline: buildSparkline(100, 0),
+          });
+        }
       } finally {
-        setLoadingPrice(false);
+        if (alive && withLoader) setLoadingPrice(false);
       }
     };
 
-    loadPrice();
+    loadPrice(true);
+    const id = setInterval(() => loadPrice(false), 15000);
+
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
   }, [selectedAsset]);
 
   const handleSave = () => {
@@ -257,7 +349,7 @@ export default function AddAssetScreen() {
           <View style={styles.panel}>
             <Text style={styles.panelTitle}>{t.sectionDetails}</Text>
 
-            <AssetSearch key={selectedAsset?.symbol || "empty"} key={selectedAsset?.symbol || 'empty'}
+            <AssetSearch key={selectedAsset?.symbol || "empty"}
               onSelect={(asset: any) => {
                 setSelectedAsset(asset);
                 if (asset.type === "crypto") setCategory("crypto");
@@ -270,19 +362,19 @@ export default function AddAssetScreen() {
               <View
                 style={{
                   marginTop: 10,
-                  height: 64,
+                  minHeight: 82,
                   borderRadius: 16,
                   borderWidth: 1,
                   borderColor: "rgba(96, 165, 250, 0.12)",
                   backgroundColor: "rgba(10, 14, 28, 0.65)",
                   paddingHorizontal: 14,
+                  paddingVertical: 12,
                   flexDirection: "row",
                   alignItems: "center",
                   justifyContent: "space-between",
                 }}
               >
-                {/* LEFT */}
-                <View style={{ flex: 1 }}>
+                <View style={{ width: "26%" }}>
                   <Text
                     style={{
                       color: TEXT,
@@ -290,6 +382,7 @@ export default function AddAssetScreen() {
                       fontWeight: "700",
                       letterSpacing: 0.3,
                     }}
+                    numberOfLines={1}
                   >
                     {selectedAsset.symbol}
                   </Text>
@@ -298,45 +391,61 @@ export default function AddAssetScreen() {
                     style={{
                       color: MUTED,
                       fontSize: 12,
-                      marginTop: 2,
+                      marginTop: 3,
                     }}
-                    numberOfLines={1}
+                    numberOfLines={2}
                   >
                     {selectedAsset.name}
                   </Text>
                 </View>
 
-                {/* RIGHT */}
-                {loadingPrice ? (
-                  <ActivityIndicator />
-                ) : (
-                  <View style={{ alignItems: "flex-end" }}>
-                    <Text
-                      style={{
-                        color: TEXT,
-                        fontSize: 15,
-                        fontWeight: "700",
-                      }}
-                    >
-                      {snapshot?.price ?? 0}
-                    </Text>
+                <View
+                  style={{
+                    width: "42%",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <MiniSparkline
+                    data={snapshot?.sparkline}
+                    color={(snapshot?.changePercent24h ?? 0) >= 0 ? "#22C55E" : "#EF4444"}
+                  />
+                </View>
 
-                    <Text
-                      style={{
-                        marginTop: 2,
-                        fontSize: 12,
-                        fontWeight: "700",
-                        color:
-                          (snapshot?.changePercent24h ?? 0) >= 0
-                            ? "#22C55E"
-                            : "#EF4444",
-                      }}
-                    >
-                      {(snapshot?.changePercent24h ?? 0) >= 0 ? "+" : ""}
-                      {(snapshot?.changePercent24h ?? 0).toFixed(2)}%
-                    </Text>
-                  </View>
-                )}
+                <View style={{ width: "26%", alignItems: "flex-end" }}>
+                  {loadingPrice && !snapshot ? (
+                    <ActivityIndicator />
+                  ) : (
+                    <>
+                      <Text
+                        style={{
+                          color: TEXT,
+                          fontSize: 16,
+                          fontWeight: "700",
+                        }}
+                      >
+                        {(snapshot?.price ?? 0).toLocaleString(undefined, {
+                          maximumFractionDigits: 2,
+                        })}
+                      </Text>
+
+                      <Text
+                        style={{
+                          marginTop: 3,
+                          fontSize: 12,
+                          fontWeight: "700",
+                          color:
+                            (snapshot?.changePercent24h ?? 0) >= 0
+                              ? "#22C55E"
+                              : "#EF4444",
+                        }}
+                      >
+                        {(snapshot?.changePercent24h ?? 0) >= 0 ? "+" : ""}
+                        {(snapshot?.changePercent24h ?? 0).toFixed(2)}%
+                      </Text>
+                    </>
+                  )}
+                </View>
               </View>
             ) : null}
 
@@ -352,13 +461,31 @@ export default function AddAssetScreen() {
               </View>
 
               <View style={styles.rowItem}>
-                <Field
-                  label={t.buyPrice}
-                  value={buyPrice}
-                  onChangeText={setBuyPrice}
-                  placeholder="0.00"
-                  keyboardType="decimal-pad"
-                />
+                <View style={styles.fieldWrap}>
+                  <View style={styles.fieldLabelRow}>
+                    <Text style={styles.fieldLabel}>
+                      {t.buyPrice} · {currency}
+                    </Text>
+
+                    <Pressable
+                      onPress={() => setCurrency(getQuickToggleCurrency(currency) as Currency)}
+                      style={styles.currencyMiniButton}
+                    >
+                      <Text style={styles.currencyMiniButtonText}>
+                        {getQuickToggleCurrency(currency)}
+                      </Text>
+                    </Pressable>
+                  </View>
+
+                  <TextInput
+                    value={buyPrice}
+                    onChangeText={setBuyPrice}
+                    placeholder="0.00"
+                    placeholderTextColor={MUTED}
+                    keyboardType="decimal-pad"
+                    style={styles.input}
+                  />
+                </View>
               </View>
             </View>
 
@@ -373,30 +500,6 @@ export default function AddAssetScreen() {
             ) : null}
           </View>
 
-          <View style={styles.panel}>
-            <Text style={styles.panelTitle}>{t.currency}</Text>
-            <View style={styles.currencyRow}>
-              {currencies.map((item) => {
-                const active = item === currency;
-                return (
-                  <Pressable
-                    key={item}
-                    onPress={() => setCurrency(item)}
-                    style={[styles.currencyChip, active && styles.currencyChipActive]}
-                  >
-                    <Text
-                      style={[
-                        styles.currencyText,
-                        active && styles.currencyTextActive,
-                      ]}
-                    >
-                      {item}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
 
           <View style={styles.noteCard}>
             <View style={styles.noteGlow} />
@@ -635,6 +738,33 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
     textTransform: "uppercase",
     marginBottom: 8,
+  },
+
+  fieldWrap: {
+    width: "100%",
+  },
+  fieldLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  currencyMiniButton: {
+    minWidth: 48,
+    height: 24,
+    paddingHorizontal: 8,
+    borderRadius: 999,
+    backgroundColor: "rgba(59,130,246,0.14)",
+    borderWidth: 1,
+    borderColor: "rgba(96,165,250,0.20)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  currencyMiniButtonText: {
+    color: "#93C5FD",
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.2,
   },
   input: {
     height: 54,
