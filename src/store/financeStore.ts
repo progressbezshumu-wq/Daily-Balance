@@ -24,6 +24,12 @@ export type Asset = {
   currency: Currency;
 };
 
+export type FinanceHistoryEntry = {
+  date: string;
+  dailyBalance: number;
+  netWorth: number;
+};
+
 type NewAsset = Omit<Asset, "id">;
 
 type FinanceStore = {
@@ -34,19 +40,63 @@ type FinanceStore = {
   setActiveExpensesPerYear: (value: number) => void;
 
   assets: Asset[];
+  history: FinanceHistoryEntry[];
+
   addAsset: (asset: NewAsset) => void;
   deleteAsset: (id: string) => void;
   updateAsset: (id: string, updatedFields: Partial<NewAsset>) => void;
   updateAssetPrice: (id: string, currentPrice: number) => void;
   clearAssets: () => void;
+
+  recordTodaySnapshot: () => void;
 };
 
 export const MERGEABLE_TYPES: AssetCategory[] = ["stock", "etf", "crypto"];
 
+function makeId() {
+  return String(Date.now()) + "-" + Math.random().toString(36).slice(2, 9);
+}
+
+function getTodayKey() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function toSafeNumber(value: unknown) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function calculateNetWorth(assets: Asset[]) {
+  return assets.reduce((sum, asset) => {
+    return sum + toSafeNumber(asset.quantity) * toSafeNumber(asset.currentPrice);
+  }, 0);
+}
+
+function calculateDailyBalance(
+  assets: Asset[],
+  activeIncomePerYear: number,
+  activeExpensesPerYear: number
+) {
+  const passiveIncomePerYear = assets.reduce((sum, asset) => {
+    const rate = toSafeNumber(asset.rate);
+    if (rate <= 0) return sum;
+
+    const value = toSafeNumber(asset.quantity) * toSafeNumber(asset.currentPrice);
+    return sum + value * (rate / 100);
+  }, 0);
+
+  return (
+    (toSafeNumber(activeIncomePerYear) +
+      passiveIncomePerYear -
+      toSafeNumber(activeExpensesPerYear)) / 365
+  );
+}
+
 export const useFinanceStore = create<FinanceStore>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       assets: [],
+      history: [],
       activeIncomePerYear: 0,
       activeExpensesPerYear: 0,
 
@@ -60,7 +110,7 @@ export const useFinanceStore = create<FinanceStore>()(
                 ...state.assets,
                 {
                   ...asset,
-                  id: String(Date.now()) + "-" + Math.random().toString(36).slice(2, 9),
+                  id: makeId(),
                 },
               ],
             };
@@ -76,7 +126,7 @@ export const useFinanceStore = create<FinanceStore>()(
                 ...state.assets,
                 {
                   ...asset,
-                  id: String(Date.now()) + "-" + Math.random().toString(36).slice(2, 9),
+                  id: makeId(),
                 },
               ],
             };
@@ -134,6 +184,42 @@ export const useFinanceStore = create<FinanceStore>()(
 
       setActiveExpensesPerYear: (value) =>
         set(() => ({ activeExpensesPerYear: value })),
+
+      recordTodaySnapshot: () => {
+        const state = get();
+        const today = getTodayKey();
+
+        const netWorth = calculateNetWorth(state.assets);
+        const dailyBalance = calculateDailyBalance(
+          state.assets,
+          state.activeIncomePerYear,
+          state.activeExpensesPerYear
+        );
+
+        const hasToday = state.history.some((item) => item.date === today);
+
+        if (hasToday) {
+          set((current) => ({
+            history: current.history.map((item) =>
+              item.date === today
+                ? { ...item, netWorth, dailyBalance }
+                : item
+            ),
+          }));
+          return;
+        }
+
+        set((current) => ({
+          history: [
+            ...current.history,
+            {
+              date: today,
+              netWorth,
+              dailyBalance,
+            },
+          ],
+        }));
+      },
     }),
     {
       name: "daily-balance-finance-store",
