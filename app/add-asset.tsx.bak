@@ -1,477 +1,667 @@
-﻿import { View, Text, TextInput, StyleSheet, Pressable, FlatList, ScrollView } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "expo-router";
-import { router, useLocalSearchParams } from "expo-router";
-
-import { assetsCatalog } from "../src/constants/assetsCatalog";
+import React, { useMemo, useState } from "react";
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import { Stack, router } from "expo-router";
 import { useFinanceStore } from "../src/store/financeStore";
 import { useSettingsStore } from "../src/store/settingsStore";
-import { translations } from "../src/i18n/translations";
 
-const assetTypes = [
-  { id: "stock" },
-  { id: "etf" },
-  { id: "crypto" },
-  { id: "staking" },
-  { id: "deposit" },
-  { id: "cash" },
-] as const;
+type AssetCategory = "stock" | "etf" | "crypto" | "staking" | "deposit" | "cash";
+type Currency = "EUR" | "USD" | "UAH";
+type AppLanguage = "en" | "de" | "uk";
 
-function parseLocaleNumber(value: string): number {
-  return Number(value.replace(",", ".").trim());
-}
+const BG = "#050816";
+const CARD = "rgba(10, 14, 28, 0.78)";
+const CARD_STRONG = "rgba(10, 16, 32, 0.94)";
+const BORDER = "rgba(96, 165, 250, 0.16)";
+const BORDER_SOFT = "rgba(148, 163, 184, 0.10)";
+const TEXT = "#EAF2FF";
+const MUTED = "#7C8AA5";
+const ACCENT = "#3B82F6";
+const POSITIVE = "#22C55E";
+const PINK = "#EC4899";
+const VIOLET = "#8B5CF6";
+const CYAN = "#22D3EE";
 
-function getAssetTypeLabel(type: string, t: any) {
-  if (type === "stock") return t.stock;
-  if (type === "etf") return t.etf;
-  if (type === "crypto") return t.crypto;
-  if (type === "staking") return t.staking;
-  if (type === "deposit") return t.deposit;
-  if (type === "cash") return t.cash;
-  return type;
+const categories: AssetCategory[] = ["stock", "etf", "crypto", "staking", "deposit", "cash"];
+const currencies: Currency[] = ["EUR", "USD", "UAH"];
+
+function toSafeNumber(value: string) {
+  const n = Number(String(value).replace(",", ".").trim());
+  return Number.isFinite(n) ? n : NaN;
 }
 
 export default function AddAssetScreen() {
-  const router = useRouter();
-  const { assetId } = useLocalSearchParams<{ assetId?: string }>();
+  const addAsset = useFinanceStore((state: any) => state.addAsset);
+  const language = (useSettingsStore((state: any) => state.language) ?? "en") as AppLanguage;
+  const displayCurrency = (useSettingsStore((state: any) => state.displayCurrency) ?? "EUR") as Currency;
 
-  const assets = useFinanceStore((state) => state.assets);
-  const addAsset = useFinanceStore((state) => state.addAsset);
-  const updateAsset = useFinanceStore((state) => state.updateAsset);
-
-  const language = useSettingsStore((state) => state.language) ?? "en";
-  const t = translations[language];
-
-  const existingAsset = useMemo(() => {
-    return assets.find((item) => item.id === assetId);
-  }, [assets, assetId]);
-
-  const isEditMode = Boolean(existingAsset);
-
-  const [category, setCategory] = useState<any>("crypto");
-  const [search, setSearch] = useState("");
-  const [selectedAsset, setSelectedAsset] = useState<any>(null);
-  const [customName, setCustomName] = useState("");
+  const [category, setCategory] = useState<AssetCategory>("stock");
+  const [currency, setCurrency] = useState<Currency>(displayCurrency);
+  const [name, setName] = useState("");
+  const [symbol, setSymbol] = useState("");
   const [quantity, setQuantity] = useState("");
   const [buyPrice, setBuyPrice] = useState("");
   const [rate, setRate] = useState("");
 
-  useEffect(() => {
-    if (!existingAsset) return;
+  const t = useMemo(() => {
+    if (language === "uk") {
+      return {
+        badge: "NEW ASSET",
+        title: "Додати актив",
+        subtitle: "Чистий запис у портфель",
+        sectionAsset: "Актив",
+        sectionDetails: "Параметри",
+        category: "Категорія",
+        currency: "Валюта",
+        name: "Назва",
+        symbol: "Тікер / символ",
+        quantity: "Кількість",
+        buyPrice: "Ціна купівлі",
+        rate: "Річна ставка, %",
+        save: "Зберегти актив",
+        back: "Назад",
+        note: "Поточна ціна пізніше буде підтягуватись через API.",
+        fillRequired: "Заповни обов’язкові поля",
+        invalid: "Перевір числові значення",
+        stock: "Акції",
+        etf: "ETF",
+        crypto: "Крипто",
+        staking: "Стейкінг",
+        deposit: "Депозит",
+        cash: "Готівка",
+      };
+    }
 
-    const matchedCatalogAsset =
-      assetsCatalog.find(
-        (item) =>
-          item.symbol === existingAsset.symbol &&
-          item.type === existingAsset.category
-      ) ??
-      assetsCatalog.find((item) => item.symbol === existingAsset.symbol) ??
-      null;
+    if (language === "de") {
+      return {
+        badge: "NEW ASSET",
+        title: "Asset hinzufügen",
+        subtitle: "Sauberer Portfolio-Eintrag",
+        sectionAsset: "Asset",
+        sectionDetails: "Parameter",
+        category: "Kategorie",
+        currency: "Währung",
+        name: "Name",
+        symbol: "Ticker / Symbol",
+        quantity: "Menge",
+        buyPrice: "Kaufpreis",
+        rate: "Jahresrate, %",
+        save: "Asset speichern",
+        back: "Zurück",
+        note: "Der aktuelle Preis wird später per API geladen.",
+        fillRequired: "Pflichtfelder ausfüllen",
+        invalid: "Numerische Werte prüfen",
+        stock: "Aktien",
+        etf: "ETF",
+        crypto: "Krypto",
+        staking: "Staking",
+        deposit: "Einlage",
+        cash: "Bargeld",
+      };
+    }
 
-    setSelectedAsset(
-      matchedCatalogAsset ?? {
-        symbol: existingAsset.symbol,
-        name: existingAsset.name,
-        price: existingAsset.currentPrice,
-      }
-    );
+    return {
+      badge: "NEW ASSET",
+      title: "Add Asset",
+      subtitle: "Clean portfolio entry",
+      sectionAsset: "Asset",
+      sectionDetails: "Parameters",
+      category: "Category",
+      currency: "Currency",
+      name: "Name",
+      symbol: "Ticker / Symbol",
+      quantity: "Quantity",
+      buyPrice: "Buy Price",
+      rate: "Annual Rate, %",
+      save: "Save Asset",
+      back: "Back",
+      note: "Current price will be fetched later via API.",
+      fillRequired: "Fill required fields",
+      invalid: "Check numeric values",
+      stock: "Stocks",
+      etf: "ETF",
+      crypto: "Crypto",
+      staking: "Staking",
+      deposit: "Deposit",
+      cash: "Cash",
+    };
+  }, [language]);
 
-    setCustomName(existingAsset.name ?? "");
-    setQuantity(String(existingAsset.quantity ?? ""));
-    setBuyPrice(
-      existingAsset.category === "cash" || existingAsset.category === "deposit"
-        ? ""
-        : String(existingAsset.buyPrice ?? "")
-    );
-    setRate(String(existingAsset.rate ?? 0));
-    setCategory(existingAsset.category ?? "crypto");
-  }, [existingAsset]);
+  const showRate = category === "staking" || category === "deposit";
 
-  const catalogType = category === "deposit" ? null : category;
-
-  const filteredAssets = assetsCatalog.filter((a) => {
-    if (catalogType && a.type !== catalogType) return false;
-
-    return (
-      a.name.toLowerCase().includes(search.toLowerCase()) ||
-      a.symbol.toLowerCase().includes(search.toLowerCase())
-    );
-  });
-
-  const isDepositType = category === "deposit";
-  const isCashType = category === "cash";
-  const isManualType = isDepositType;
-
-  function handleSave() {
-  const quantityValue = parseLocaleNumber(quantity);
-
-  if (!quantityValue || quantityValue <= 0) {
-    return;
-  }
-    const parsedQuantity = parseLocaleNumber(quantity);
-    const parsedRate = rate ? parseLocaleNumber(rate) : 0;
-
-    if (Number.isNaN(parsedQuantity)) return;
-
-    if (isDepositType) {
-      if (!customName.trim()) return;
-      if (Number.isNaN(parsedRate)) return;
-
-      if (isEditMode && existingAsset) {
-        updateAsset(existingAsset.id, {
-          symbol: "DEP",
-          name: customName.trim(),
-          quantity: parsedQuantity,
-          buyPrice: 1,
-          currentPrice: 1,
-          rate: parsedRate,
-          category: "deposit",
-        });
-      } else {
-        addAsset({
-          symbol: "DEP",
-          name: customName.trim(),
-          quantity: parsedQuantity,
-          buyPrice: 1,
-          currentPrice: 1,
-          rate: parsedRate,
-          category: "deposit",
-        });
-      }
-
-      router.back();
+  const handleSave = () => {
+    if (!name.trim() || !quantity.trim() || !buyPrice.trim()) {
+      Alert.alert(t.fillRequired);
       return;
     }
 
-    if (!selectedAsset || !quantity) return;
+    const parsedQuantity = toSafeNumber(quantity);
+    const parsedBuyPrice = toSafeNumber(buyPrice);
+    const parsedRate = rate.trim() ? toSafeNumber(rate) : 0;
 
-    const parsedBuyPrice = isCashType ? 1 : parseLocaleNumber(buyPrice);
-
-    if (Number.isNaN(parsedBuyPrice) || Number.isNaN(parsedRate)) {
+    if (
+      Number.isNaN(parsedQuantity) ||
+      Number.isNaN(parsedBuyPrice) ||
+      Number.isNaN(parsedRate)
+    ) {
+      Alert.alert(t.invalid);
       return;
     }
 
-    const nextCurrentPrice = isCashType ? 1 : selectedAsset.price;
-
-    if (isEditMode && existingAsset) {
-      updateAsset(existingAsset.id, {
-        symbol: selectedAsset.symbol,
-        name: selectedAsset.name,
-        quantity: parsedQuantity,
-        buyPrice: parsedBuyPrice,
-        currentPrice: nextCurrentPrice,
-        rate: parsedRate,
-        category,
-      });
-    } else {
-      addAsset({
-        symbol: selectedAsset.symbol,
-        name: selectedAsset.name,
-        quantity: parsedQuantity,
-        buyPrice: parsedBuyPrice,
-        currentPrice: nextCurrentPrice,
-        rate: parsedRate,
-        category,
-      });
-    }
+    addAsset({
+      id: String(Date.now()),
+      name: name.trim(),
+      symbol: (symbol.trim() || name.trim()).toUpperCase(),
+      quantity: parsedQuantity,
+      buyPrice: parsedBuyPrice,
+      currentPrice: parsedBuyPrice,
+      category,
+      currency,
+      rate: showRate ? parsedRate : 0,
+    });
 
     router.back();
-  }
-
-  const currentPrice = isCashType || isDepositType ? 1 : selectedAsset?.price ?? 0;
-
-  const parsedQuantityPreview = parseLocaleNumber(quantity);
-  const parsedBuyPricePreview = isCashType || isDepositType ? 1 : parseLocaleNumber(buyPrice);
-
-  const currentValue =
-    !Number.isNaN(parsedQuantityPreview)
-      ? parsedQuantityPreview * currentPrice
-      : 0;
-
-  const buyValue =
-    !Number.isNaN(parsedQuantityPreview) && !Number.isNaN(parsedBuyPricePreview)
-      ? parsedQuantityPreview * parsedBuyPricePreview
-      : 0;
-
-  const profit = currentValue - buyValue;
-
-  const showRateField = category === "deposit" || category === "staking";
-  const showProfitBlock =
-    category === "stock" ||
-    category === "etf" ||
-    category === "crypto" ||
-    category === "staking";
+  };
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-        alwaysBounceVertical
-        bounces
+    <View style={styles.root}>
+      <Stack.Screen options={{ headerShown: false }} />
+
+      <View style={[styles.bgOrb, styles.bgBlue]} />
+      <View style={[styles.bgOrb, styles.bgGreen]} />
+      <View style={[styles.bgOrb, styles.bgPink]} />
+      <View style={[styles.bgOrb, styles.bgViolet]} />
+      <View style={[styles.bgLine, styles.bgLineA]} />
+      <View style={[styles.bgLine, styles.bgLineB]} />
+
+      <KeyboardAvoidingView
+        style={styles.root}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <Text style={styles.title}>
-          {isEditMode ? t.edit : t.addAsset}
-        </Text>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.heroCard}>
+            <View style={styles.heroGlowA} />
+            <View style={styles.heroGlowB} />
+            <View style={styles.heroGlowC} />
 
-        <Text style={styles.section}>{t.assetType}</Text>
+            <Text style={styles.badge}>{t.badge}</Text>
+            <Text style={styles.title}>{t.title}</Text>
+            <Text style={styles.subtitle}>{t.subtitle}</Text>
+          </View>
 
-        <View style={styles.typeRow}>
-          {assetTypes.map((type) => (
-            <Pressable
-              key={type.id}
-              style={[
-                styles.typeButton,
-                category === type.id && styles.typeActive,
-              ]}
-              onPress={() => {
-                setCategory(type.id);
-                if (!isEditMode) {
-                  setSelectedAsset(null);
-                  setSearch("");
-                  setCustomName("");
-                  setQuantity("");
-                  setBuyPrice("");
-                  setRate("");
-                }
-              }}
-            >
-              <Text style={styles.typeText}>{getAssetTypeLabel(type.id, t)}</Text>
-            </Pressable>
-          ))}
-        </View>
+          <View style={styles.panel}>
+            <Text style={styles.panelTitle}>{t.sectionAsset}</Text>
 
-        {!selectedAsset && !isEditMode && !isManualType && (
-          <>
-            <TextInput
-              style={styles.input}
-              placeholder={t.searchAsset + " (BTC, Apple...)"}
-              placeholderTextColor="#888"
-              value={search}
-              onChangeText={setSearch}
+            <Text style={styles.label}>{t.category}</Text>
+            <View style={styles.chipsWrap}>
+              {categories.map((item) => {
+                const active = item === category;
+                return (
+                  <Pressable
+                    key={item}
+                    onPress={() => setCategory(item)}
+                    style={[styles.chip, active && styles.chipActive]}
+                  >
+                    <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                      {t[item]}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+
+          <View style={styles.panel}>
+            <Text style={styles.panelTitle}>{t.sectionDetails}</Text>
+
+            <Field
+              label={t.name}
+              value={name}
+              onChangeText={setName}
+              placeholder={t.name}
             />
 
-            <FlatList
-              data={filteredAssets}
-              keyExtractor={(item) => item.id}
-              scrollEnabled={false}
-              renderItem={({ item }) => (
-                <Pressable
-                  style={styles.assetItem}
-                  onPress={() => setSelectedAsset(item)}
-                >
-                  <Text style={styles.assetText}>
-                    {item.symbol} — {item.name}
-                  </Text>
-                </Pressable>
-              )}
-            />
-          </>
-        )}
-
-        {isDepositType && (
-          <>
-            <TextInput
-              style={styles.input}
-              placeholder={t.depositName}
-              placeholderTextColor="#888"
-              value={customName}
-              onChangeText={setCustomName}
+            <Field
+              label={t.symbol}
+              value={symbol}
+              onChangeText={(value) => setSymbol(value.toUpperCase())}
+              placeholder={t.symbol}
+              autoCapitalize="characters"
             />
 
-            <TextInput
-              style={styles.input}
-              placeholder={t.principalAmount}
-              placeholderTextColor="#888"
-              keyboardType="decimal-pad"
-              value={quantity}
-              onChangeText={setQuantity}
-            />
+            <View style={styles.row}>
+              <View style={styles.rowItem}>
+                <Field
+                  label={t.quantity}
+                  value={quantity}
+                  onChangeText={setQuantity}
+                  placeholder="0"
+                  keyboardType="decimal-pad"
+                />
+              </View>
 
-            <TextInput
-              style={styles.input}
-              placeholder={t.annualRateOptional}
-              placeholderTextColor="#888"
-              keyboardType="decimal-pad"
-              value={rate}
-              onChangeText={setRate}
-            />
+              <View style={styles.rowItem}>
+                <Field
+                  label={t.buyPrice}
+                  value={buyPrice}
+                  onChangeText={setBuyPrice}
+                  placeholder="0.00"
+                  keyboardType="decimal-pad"
+                />
+              </View>
+            </View>
 
-            <Text style={styles.info}>
-              {t.currentValue}: {currentValue.toFixed(2)} EUR
-            </Text>
-
-            <Text style={styles.info}>
-              {t.passiveIncomePerYear}: {(currentValue * ((rate ? parseLocaleNumber(rate) : 0) / 100)).toFixed(2)} EUR
-            </Text>
-
-            <Pressable style={styles.button} onPress={handleSave}>
-              <Text style={styles.buttonText}>
-                {isEditMode ? t.edit : t.addAsset}
-              </Text>
-            </Pressable>
-          </>
-        )}
-
-        {selectedAsset && !isDepositType && (
-          <>
-            <Text style={styles.selected}>
-              {selectedAsset.symbol} — {selectedAsset.name}
-            </Text>
-
-            <TextInput
-              style={styles.input}
-              placeholder={isCashType ? t.principalAmount : t.quantity}
-              placeholderTextColor="#888"
-              keyboardType="decimal-pad"
-              value={quantity}
-              onChangeText={setQuantity}
-            />
-
-            {!isCashType && (
-              <TextInput
-                style={styles.input}
-                placeholder={t.buyPricePerUnit}
-                placeholderTextColor="#888"
-                keyboardType="decimal-pad"
-                value={buyPrice}
-                onChangeText={setBuyPrice}
-              />
-            )}
-
-            {showRateField && (
-              <TextInput
-                style={styles.input}
-                placeholder={t.annualRateOptional}
-                placeholderTextColor="#888"
-                keyboardType="decimal-pad"
+            {showRate ? (
+              <Field
+                label={t.rate}
                 value={rate}
                 onChangeText={setRate}
+                placeholder="0"
+                keyboardType="decimal-pad"
               />
-            )}
+            ) : null}
+          </View>
 
-            <Text style={styles.info}>
-              {t.currentPrice}: {currentPrice} EUR
-            </Text>
+          <View style={styles.panel}>
+            <Text style={styles.panelTitle}>{t.currency}</Text>
+            <View style={styles.currencyRow}>
+              {currencies.map((item) => {
+                const active = item === currency;
+                return (
+                  <Pressable
+                    key={item}
+                    onPress={() => setCurrency(item)}
+                    style={[styles.currencyChip, active && styles.currencyChipActive]}
+                  >
+                    <Text
+                      style={[
+                        styles.currencyText,
+                        active && styles.currencyTextActive,
+                      ]}
+                    >
+                      {item}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
 
-            <Text style={styles.info}>
-              {t.currentValue}: {currentValue.toFixed(2)} EUR
-            </Text>
+          <View style={styles.noteCard}>
+            <View style={styles.noteGlow} />
+            <Text style={styles.noteTitle}>API</Text>
+            <Text style={styles.noteText}>{t.note}</Text>
+          </View>
 
-            {showProfitBlock && (
-              <Text style={styles.info}>
-                {t.profitLoss}: {profit.toFixed(2)} EUR
-              </Text>
-            )}
-
-            <Pressable style={styles.button} onPress={handleSave}>
-              <Text style={styles.buttonText}>
-                {isEditMode ? t.edit : t.addAsset}
-              </Text>
+          <View style={styles.actions}>
+            <Pressable style={styles.backButton} onPress={() => router.back()}>
+              <Text style={styles.backButtonText}>{t.back}</Text>
             </Pressable>
-          </>
-        )}
-      </ScrollView>
-    </SafeAreaView>
+
+            <Pressable style={styles.saveButton} onPress={handleSave}>
+              <View style={styles.saveGlow} />
+              <Text style={styles.saveButtonText}>{t.save}</Text>
+            </Pressable>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
+  );
+}
+
+function Field({
+  label,
+  value,
+  onChangeText,
+  placeholder,
+  keyboardType,
+  autoCapitalize,
+}: {
+  label: string;
+  value: string;
+  onChangeText: (value: string) => void;
+  placeholder: string;
+  keyboardType?: "default" | "decimal-pad";
+  autoCapitalize?: "none" | "characters" | "sentences" | "words";
+}) {
+  return (
+    <View style={styles.field}>
+      <Text style={styles.label}>{label}</Text>
+      <TextInput
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor={MUTED}
+        keyboardType={keyboardType ?? "default"}
+        autoCapitalize={autoCapitalize ?? "none"}
+        style={styles.input}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: {
+  root: {
     flex: 1,
-    backgroundColor: "#0f1115",
+    backgroundColor: BG,
   },
 
-  container: {
-    flex: 1,
-    backgroundColor: "#0f1115",
+  bgOrb: {
+    position: "absolute",
+    borderRadius: 999,
+  },
+  bgBlue: {
+    top: -120,
+    right: -80,
+    width: 260,
+    height: 260,
+    backgroundColor: "rgba(59,130,246,0.16)",
+  },
+  bgGreen: {
+    top: 260,
+    left: -90,
+    width: 180,
+    height: 180,
+    backgroundColor: "rgba(34,197,94,0.08)",
+  },
+  bgPink: {
+    bottom: 160,
+    right: -70,
+    width: 220,
+    height: 220,
+    backgroundColor: "rgba(236,72,153,0.08)",
+  },
+  bgViolet: {
+    bottom: 40,
+    left: -90,
+    width: 220,
+    height: 220,
+    backgroundColor: "rgba(139,92,246,0.08)",
+  },
+  bgLine: {
+    position: "absolute",
+    height: 1,
+    borderRadius: 999,
+  },
+  bgLineA: {
+    top: 200,
+    left: 30,
+    right: 80,
+    backgroundColor: "rgba(34,211,238,0.10)",
+  },
+  bgLineB: {
+    top: 520,
+    left: 80,
+    right: 20,
+    backgroundColor: "rgba(236,72,153,0.08)",
   },
 
   content: {
-    padding: 24,
-    paddingBottom: 40,
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 120,
+    gap: 14,
   },
 
-  title: {
-    fontSize: 28,
+  heroCard: {
+    backgroundColor: CARD,
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: BORDER,
+    padding: 18,
+    overflow: "hidden",
+    shadowColor: ACCENT,
+    shadowOpacity: 0.18,
+    shadowRadius: 22,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 10,
+  },
+  heroGlowA: {
+    position: "absolute",
+    top: -60,
+    right: -30,
+    width: 180,
+    height: 180,
+    borderRadius: 999,
+    backgroundColor: "rgba(59,130,246,0.22)",
+  },
+  heroGlowB: {
+    position: "absolute",
+    bottom: -50,
+    left: -25,
+    width: 140,
+    height: 140,
+    borderRadius: 999,
+    backgroundColor: "rgba(139,92,246,0.14)",
+  },
+  heroGlowC: {
+    position: "absolute",
+    top: 70,
+    left: 130,
+    width: 100,
+    height: 100,
+    borderRadius: 999,
+    backgroundColor: "rgba(34,197,94,0.08)",
+  },
+  badge: {
+    color: "#A5D8FF",
+    fontSize: 11,
     fontWeight: "700",
-    marginBottom: 20,
-    color: "white",
-  },
-
-  section: {
-    color: "#8b93a7",
+    letterSpacing: 1.8,
     marginBottom: 10,
   },
+  title: {
+    color: "#FFFFFF",
+    fontSize: 28,
+    lineHeight: 32,
+    fontWeight: "800",
+    marginBottom: 8,
+  },
+  subtitle: {
+    color: "#B7C7DE",
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: "500",
+  },
 
-  typeRow: {
+  panel: {
+    backgroundColor: CARD,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: BORDER_SOFT,
+    padding: 16,
+    shadowColor: "#0F172A",
+    shadowOpacity: 0.16,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 6,
+  },
+  panelTitle: {
+    color: TEXT,
+    fontSize: 15,
+    fontWeight: "700",
+    marginBottom: 14,
+  },
+
+  chipsWrap: {
     flexDirection: "row",
     flexWrap: "wrap",
-    marginBottom: 20,
+    gap: 10,
   },
-
-  typeButton: {
-    backgroundColor: "#1c2230",
-    padding: 10,
-    borderRadius: 8,
-    marginRight: 8,
-    marginBottom: 8,
+  chip: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: BORDER_SOFT,
+    backgroundColor: CARD_STRONG,
   },
-
-  typeActive: {
-    backgroundColor: "#2f6fed",
+  chipActive: {
+    backgroundColor: "rgba(59,130,246,0.18)",
+    borderColor: "rgba(96,165,250,0.34)",
+    shadowColor: ACCENT,
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 6,
   },
-
-  typeText: {
-    color: "white",
-  },
-
-  input: {
-    backgroundColor: "#1c2230",
-    padding: 14,
-    borderRadius: 8,
-    marginBottom: 16,
-    color: "white",
-  },
-
-  assetItem: {
-    padding: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: "#222",
-  },
-
-  assetText: {
-    color: "white",
-    fontSize: 16,
-  },
-
-  selected: {
-    fontSize: 20,
-    marginBottom: 16,
-    color: "white",
-  },
-
-  info: {
-    color: "#8b93a7",
-    marginBottom: 8,
-  },
-
-  button: {
-    backgroundColor: "#2f6fed",
-    padding: 14,
-    borderRadius: 8,
-    alignItems: "center",
-    marginTop: 12,
-  },
-
-  buttonText: {
-    color: "white",
+  chipText: {
+    color: "#C8D5E6",
+    fontSize: 13,
     fontWeight: "600",
   },
+  chipTextActive: {
+    color: "#FFFFFF",
+  },
+
+  field: {
+    marginBottom: 14,
+  },
+  label: {
+    color: MUTED,
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+    marginBottom: 8,
+  },
+  input: {
+    height: 54,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: BORDER_SOFT,
+    backgroundColor: CARD_STRONG,
+    paddingHorizontal: 16,
+    color: TEXT,
+    fontSize: 15,
+    fontWeight: "500",
+  },
+
+  row: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  rowItem: {
+    flex: 1,
+  },
+
+  currencyRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  currencyChip: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: BORDER_SOFT,
+    backgroundColor: CARD_STRONG,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  currencyChipActive: {
+    backgroundColor: "rgba(59,130,246,0.18)",
+    borderColor: "rgba(96,165,250,0.34)",
+  },
+  currencyText: {
+    color: "#C8D5E6",
+    fontWeight: "700",
+    fontSize: 14,
+  },
+  currencyTextActive: {
+    color: "#FFFFFF",
+  },
+
+  noteCard: {
+    backgroundColor: "rgba(19, 26, 48, 0.86)",
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: "rgba(96,165,250,0.16)",
+    padding: 15,
+    overflow: "hidden",
+  },
+  noteGlow: {
+    position: "absolute",
+    width: 120,
+    height: 120,
+    borderRadius: 999,
+    right: -30,
+    bottom: -50,
+    backgroundColor: "rgba(236,72,153,0.08)",
+  },
+  noteTitle: {
+    color: "#BFDBFE",
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 1,
+    marginBottom: 8,
+    textTransform: "uppercase",
+  },
+  noteText: {
+    color: "#D8E4F5",
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: "500",
+  },
+
+  actions: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  backButton: {
+    flex: 1,
+    height: 56,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: BORDER_SOFT,
+    backgroundColor: CARD_STRONG,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  backButtonText: {
+    color: TEXT,
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  saveButton: {
+    flex: 1.25,
+    height: 56,
+    borderRadius: 20,
+    backgroundColor: ACCENT,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+    shadowColor: ACCENT,
+    shadowOpacity: 0.26,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 10,
+  },
+  saveGlow: {
+    position: "absolute",
+    top: -20,
+    right: -10,
+    width: 100,
+    height: 100,
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.12)",
+  },
+  saveButtonText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "800",
+  },
 });
-
-
-

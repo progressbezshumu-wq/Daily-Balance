@@ -1,4 +1,4 @@
-﻿import AsyncStorage from "@react-native-async-storage/async-storage";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
@@ -34,65 +34,79 @@ type FinanceStore = {
   setActiveExpensesPerYear: (value: number) => void;
 
   assets: Asset[];
-
   addAsset: (asset: NewAsset) => void;
   deleteAsset: (id: string) => void;
   updateAsset: (id: string, updatedFields: Partial<NewAsset>) => void;
-
+  updateAssetPrice: (id: string, currentPrice: number) => void;
   clearAssets: () => void;
 };
 
-export const MERGEABLE_TYPES = ["stock", "etf", "crypto"];
+export const MERGEABLE_TYPES: AssetCategory[] = ["stock", "etf", "crypto"];
 
 export const useFinanceStore = create<FinanceStore>()(
   persist(
     (set) => ({
       assets: [],
-
       activeIncomePerYear: 0,
       activeExpensesPerYear: 0,
 
       addAsset: (asset) =>
-  set((state) => {
-    const isMergeable = MERGEABLE_TYPES.includes(asset.category);
+        set((state) => {
+          const isMergeable = MERGEABLE_TYPES.includes(asset.category);
 
-    if (!isMergeable) {
-      return { assets: [...state.assets, asset] };
-    }
-
-    const existing = state.assets.find(
-      (a) => a.symbol === asset.symbol && a.category === asset.category
-    );
-
-    if (!existing) {
-      return { assets: [...state.assets, asset] };
-    }
-
-    const oldQ = Number(existing.quantity || 0);
-    const newQ = Number(asset.quantity || 0);
-
-    const oldPrice = Number(existing.buyPrice || 0);
-    const newPrice = Number(asset.buyPrice || 0);
-
-    const totalQ = oldQ + newQ;
-
-    const avgPrice =
-  totalQ > 0
-    ? (oldQ * oldPrice + newQ * newPrice) / totalQ
-    : oldPrice;
-
-    const updated = state.assets.map((a) =>
-      a.id === existing.id
-        ? {
-            ...a,
-            quantity: totalQ,
-            buyPrice: avgPrice,
+          if (!isMergeable) {
+            return {
+              assets: [
+                ...state.assets,
+                {
+                  ...asset,
+                  id: crypto.randomUUID(),
+                },
+              ],
+            };
           }
-        : a
-    );
 
-    return { assets: updated };
-  }),
+          const existing = state.assets.find(
+            (a) => a.symbol === asset.symbol && a.category === asset.category
+          );
+
+          if (!existing) {
+            return {
+              assets: [
+                ...state.assets,
+                {
+                  ...asset,
+                  id: crypto.randomUUID(),
+                },
+              ],
+            };
+          }
+
+          const oldQ = Number(existing.quantity || 0);
+          const newQ = Number(asset.quantity || 0);
+
+          const oldPrice = Number(existing.buyPrice || 0);
+          const newPrice = Number(asset.buyPrice || 0);
+
+          const totalQ = oldQ + newQ;
+
+          const avgPrice =
+            totalQ > 0
+              ? (oldQ * oldPrice + newQ * newPrice) / totalQ
+              : oldPrice;
+
+          const updated = state.assets.map((a) =>
+            a.id === existing.id
+              ? {
+                  ...a,
+                  quantity: totalQ,
+                  buyPrice: avgPrice,
+                }
+              : a
+          );
+
+          return { assets: updated };
+        }),
 
       deleteAsset: (id) =>
         set((state) => ({
@@ -103,6 +117,13 @@ export const useFinanceStore = create<FinanceStore>()(
         set((state) => ({
           assets: state.assets.map((asset) =>
             asset.id === id ? { ...asset, ...updatedFields } : asset
+          ),
+        })),
+
+      updateAssetPrice: (id, currentPrice) =>
+        set((state) => ({
+          assets: state.assets.map((asset) =>
+            asset.id === id ? { ...asset, currentPrice } : asset
           ),
         })),
 
@@ -120,6 +141,3 @@ export const useFinanceStore = create<FinanceStore>()(
     }
   )
 );
-
-
-

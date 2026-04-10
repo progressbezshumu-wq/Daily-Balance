@@ -1,0 +1,155 @@
+﻿import AsyncStorage from "@react-native-async-storage/async-storage";
+import { create } from "zustand";
+import { createJSONStorage, persist } from "zustand/middleware";
+
+export type AssetCategory =
+  | "stock"
+  | "etf"
+  | "crypto"
+  | "staking"
+  | "deposit"
+  | "cash";
+
+export type Currency = "EUR" | "USD" | "UAH";
+
+export type Asset = {
+  id: string;
+  symbol: string;
+  name: string;
+  quantity: number;
+  buyPrice: number;
+  currentPrice: number;
+  rate: number;
+  category: AssetCategory;
+  currency: Currency;
+};
+
+type NewAsset = Omit<Asset, "id">;
+
+type FinanceStore = {
+  activeIncomePerYear: number;
+  activeExpensesPerYear: number;
+
+  setActiveIncomePerYear: (value: number) => void;
+  setActiveExpensesPerYear: (value: number) => void;
+
+  assets: Asset[];
+  updateAssetPrice: (id: string, currentPrice: number) => void;
+
+
+  addAsset: (asset: NewAsset) => void;
+  deleteAsset: (id: string) => void;
+  updateAsset: (id: string, updatedFields: Partial<NewAsset>) => void;
+
+  clearAssets: () => void;
+};
+
+export const MERGEABLE_TYPES = ["stock", "etf", "crypto"];
+
+export const useFinanceStore = create<FinanceStore>()(
+  persist(
+    (set) => ({
+      assets: [],
+  updateAssetPrice: (id: string, currentPrice: number) =>
+    set((state) => ({
+      assets: state.assets.map((asset) =>
+        asset.id === id ? { ...asset, currentPrice } : asset
+      ),
+    })),
+
+
+      activeIncomePerYear: 0,
+      activeExpensesPerYear: 0,
+
+      addAsset: (asset) =>
+  set((state) => {
+    const isMergeable = MERGEABLE_TYPES.includes(asset.category);
+
+    if (!isMergeable) {
+      return { assets: [...state.assets, asset] };
+  updateAssetPrice: (id: string, currentPrice: number) =>
+    set((state) => ({
+      assets: state.assets.map((asset) =>
+        asset.id === id ? { ...asset, currentPrice } : asset
+      ),
+    })),
+
+    }
+
+    const existing = state.assets.find(
+      (a) => a.symbol === asset.symbol && a.category === asset.category
+    );
+
+    if (!existing) {
+      return { assets: [...state.assets, asset] };
+  updateAssetPrice: (id: string, currentPrice: number) =>
+    set((state) => ({
+      assets: state.assets.map((asset) =>
+        asset.id === id ? { ...asset, currentPrice } : asset
+      ),
+    })),
+
+    }
+
+    const oldQ = Number(existing.quantity || 0);
+    const newQ = Number(asset.quantity || 0);
+
+    const oldPrice = Number(existing.buyPrice || 0);
+    const newPrice = Number(asset.buyPrice || 0);
+
+    const totalQ = oldQ + newQ;
+
+    const avgPrice =
+  totalQ > 0
+    ? (oldQ * oldPrice + newQ * newPrice) / totalQ
+    : oldPrice;
+
+    const updated = state.assets.map((a) =>
+      a.id === existing.id
+        ? {
+            ...a,
+            quantity: totalQ,
+            buyPrice: avgPrice,
+          }
+        : a
+    );
+
+    return { assets: updated };
+  }),
+
+      deleteAsset: (id) =>
+        set((state) => ({
+          assets: state.assets.filter((asset) => asset.id !== id),
+        })),
+
+      updateAsset: (id, updatedFields) =>
+        set((state) => ({
+          assets: state.assets.map((asset) =>
+            asset.id === id ? { ...asset, ...updatedFields } : asset
+          ),
+        })),
+
+      clearAssets: () => set({ assets: [] }),
+  updateAssetPrice: (id: string, currentPrice: number) =>
+    set((state) => ({
+      assets: state.assets.map((asset) =>
+        asset.id === id ? { ...asset, currentPrice } : asset
+      ),
+    })),
+
+
+      setActiveIncomePerYear: (value) =>
+        set(() => ({ activeIncomePerYear: value })),
+
+      setActiveExpensesPerYear: (value) =>
+        set(() => ({ activeExpensesPerYear: value })),
+    }),
+    {
+      name: "daily-balance-finance-store",
+      storage: createJSONStorage(() => AsyncStorage),
+    }
+  )
+);
+
+
+
