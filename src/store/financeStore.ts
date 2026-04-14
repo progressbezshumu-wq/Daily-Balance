@@ -61,6 +61,10 @@ function getTodayKey() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function getNowKey() {
+  return new Date().toISOString();
+}
+
 function toSafeNumber(value: unknown) {
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;
@@ -187,7 +191,7 @@ export const useFinanceStore = create<FinanceStore>()(
 
       recordTodaySnapshot: () => {
         const state = get();
-        const today = getTodayKey();
+        const now = getNowKey();
 
         const netWorth = calculateNetWorth(state.assets);
         const dailyBalance = calculateDailyBalance(
@@ -196,13 +200,15 @@ export const useFinanceStore = create<FinanceStore>()(
           state.activeExpensesPerYear
         );
 
-        const hasToday = state.history.some((item) => item.date === today);
+        const lastItem = state.history[state.history.length - 1];
+        const lastTime = lastItem ? new Date(lastItem.date).getTime() : 0;
+        const nowTime = new Date(now).getTime();
 
-        if (hasToday) {
+        if (lastItem && nowTime - lastTime < 5 * 60 * 1000) {
           set((current) => ({
-            history: current.history.map((item) =>
-              item.date === today
-                ? { ...item, netWorth, dailyBalance }
+            history: current.history.map((item, index) =>
+              index === current.history.length - 1
+                ? { ...item, date: now, netWorth, dailyBalance }
                 : item
             ),
           }));
@@ -211,9 +217,9 @@ export const useFinanceStore = create<FinanceStore>()(
 
         set((current) => ({
           history: [
-            ...current.history,
+            ...current.history.slice(-59),
             {
-              date: today,
+              date: now,
               netWorth,
               dailyBalance,
             },

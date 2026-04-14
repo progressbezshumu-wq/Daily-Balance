@@ -50,6 +50,8 @@ export const translations = {
     passive: "Passive",
     capital: "Capital",
     yourFinancialBase: "Your financial base",
+    inflow: "Inflow",
+    outflow: "Outflow",
 
     passiveIncomeSources: "Passive income sources",
     stock: "Stocks",
@@ -144,6 +146,8 @@ export const translations = {
     passive: "Passiv",
     capital: "Kapital",
     yourFinancialBase: "Deine finanzielle Basis",
+    inflow: "Zufluss",
+    outflow: "Abfluss",
 
     passiveIncomeSources: "Quellen des passiven Einkommens",
     stock: "Aktien",
@@ -238,6 +242,8 @@ export const translations = {
     passive: "\u041f\u0430\u0441\u0438\u0432\u043d\u0438\u0439",
     capital: "\u041a\u0430\u043f\u0456\u0442\u0430\u043b",
     yourFinancialBase: "\u0422\u0432\u043e\u044f \u0444\u0456\u043d\u0430\u043d\u0441\u043e\u0432\u0430 \u0431\u0430\u0437\u0430",
+    inflow: "\u0412\u0445\u0456\u0434\u043d\u0438\u0439 \u043f\u043e\u0442\u0456\u043a",
+    outflow: "\u0412\u0438\u0445\u0456\u0434\u043d\u0438\u0439 \u043f\u043e\u0442\u0456\u043a",
 
     passiveIncomeSources: "\u0414\u0436\u0435\u0440\u0435\u043b\u0430 \u043f\u0430\u0441\u0438\u0432\u043d\u043e\u0433\u043e \u0434\u043e\u0445\u043e\u0434\u0443",
     stock: "\u0410\u043a\u0446\u0456\u0457",

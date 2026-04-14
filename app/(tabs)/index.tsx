@@ -1,9 +1,11 @@
-import React, { useMemo } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useMemo, useState } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import Svg, { Line, Path } from "react-native-svg";
 import { Stack } from "expo-router";
 import { useFinanceStore } from "../../src/store/financeStore";
 import { useLiabilityStore } from "../../src/store/liabilityStore";
 import { useSettingsStore } from "../../src/store/settingsStore";
+import { t } from "../../src/i18n";
 
 const BG = "#050816";
 const CARD = "rgba(10, 14, 28, 0.78)";
@@ -50,6 +52,36 @@ function getLiabilityYearlyValue(liability: any): number {
   return 0;
 }
 
+
+function buildChartPath(values: number[], width: number, height: number, pad = 10) {
+  if (!values.length) return "";
+
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  const innerW = width - pad * 2;
+  const innerH = height - pad * 2;
+
+  const points = values.map((value, index) => {
+    const x = pad + (values.length === 1 ? innerW / 2 : (index / (values.length - 1)) * innerW);
+    const y = pad + innerH - ((value - min) / range) * innerH;
+    return { x, y };
+  });
+
+  let d = `M ${points[0].x} ${points[0].y}`;
+
+  for (let i = 1; i < points.length; i++) {
+    const prev = points[i - 1];
+    const curr = points[i];
+
+    const midX = (prev.x + curr.x) / 2;
+
+    d += ` Q ${midX} ${prev.y}, ${curr.x} ${curr.y}`;
+  }
+
+  return d;
+}
+
 function formatMoney(value: number, currency: string) {
   const sign = value < 0 ? "-" : "";
   return `${sign}${Math.abs(value).toFixed(2)} ${currency}`;
@@ -60,89 +92,127 @@ export default function OverviewScreen() {
   const activeIncomePerYear = useFinanceStore((state: any) => state.activeIncomePerYear ?? 0);
   const activeExpensesPerYear = useFinanceStore((state: any) => state.activeExpensesPerYear ?? 0);
   const liabilities = useLiabilityStore((state: any) => state.liabilities ?? []);
+  const history = useFinanceStore((state: any) => state.history ?? []);
+  const recordTodaySnapshot = useFinanceStore((state: any) => state.recordTodaySnapshot);
+
+  React.useEffect(() => {
+    recordTodaySnapshot();
+  }, []);
   const language = (useSettingsStore((state: any) => state.language) ?? "en") as AppLanguage;
   const displayCurrency = useSettingsStore((state: any) => state.displayCurrency ?? "EUR");
+  const [showNetWorth, setShowNetWorth] = useState(false);
+  const [showPassive, setShowPassive] = useState(false);
 
-  const t = useMemo(() => {
-    if (language === "uk") {
-      return {
-        badge: "DAILY BALANCE",
-        hero: "Чистий денний баланс",
-        capital: "Капітал",
-        passiveIncome: "Пасивний дохід",
-        activeIncome: "Активний дохід",
-        activeExpenses: "Активні витрати",
-        liabilities: "Пасиви",
-        yearly: "за рік",
-        financialBase: "Фінансова база",
-        breakdown: "Структура доходу",
-        staking: "Стейкінг",
-        deposits: "Депозити",
-        other: "Інше",
-        inflow: "Inflow",
-        outflow: "Outflow",
-        status: "Стан",
-        stable: "Стабільно",
-        warning: "Увага",
-        strong: "Сильна позиція",
-        noteGood: "Баланс позитивний. Система працює в плюс.",
-        noteMid: "Баланс близький до нуля. Варто трохи посилити запас.",
-        noteBad: "Баланс негативний. Потрібно зменшити річний відтік.",
-      };
-    }
+  const [showAnalytics, setShowAnalytics] = useState(true);
 
-    if (language === "de") {
-      return {
-        badge: "DAILY BALANCE",
-        hero: "Netto-Tagesbilanz",
-        capital: "Kapital",
-        passiveIncome: "Passives Einkommen",
-        activeIncome: "Aktives Einkommen",
-        activeExpenses: "Aktive Ausgaben",
-        liabilities: "Verbindlichkeiten",
-        yearly: "pro Jahr",
-        financialBase: "Finanzielle Basis",
-        breakdown: "Einkommensstruktur",
-        staking: "Staking",
-        deposits: "Einlagen",
-        other: "Sonstiges",
-        inflow: "Inflow",
-        outflow: "Outflow",
-        status: "Status",
-        stable: "Stabil",
-        warning: "Achtung",
-        strong: "Starke Position",
-        noteGood: "Die Bilanz ist positiv. Das System arbeitet im Plus.",
-        noteMid: "Die Bilanz liegt nahe null. Ein kleiner Puffer wäre gut.",
-        noteBad: "Die Bilanz ist negativ. Der jährliche Abfluss sollte reduziert werden.",
-      };
-    }
 
-    return {
+  const copy = useMemo(
+    () => ({
       badge: "DAILY BALANCE",
-      hero: "Net daily balance",
-      capital: "Capital",
-      passiveIncome: "Passive income",
-      activeIncome: "Active income",
-      activeExpenses: "Active expenses",
-      liabilities: "Liabilities",
-      yearly: "per year",
-      financialBase: "Financial base",
-      breakdown: "Income structure",
-      staking: "Staking",
-      deposits: "Deposits",
-      other: "Other",
-      inflow: "Inflow",
-      outflow: "Outflow",
-      status: "Status",
-      stable: "Stable",
-      warning: "Warning",
-      strong: "Strong position",
-      noteGood: "Balance is positive. The system is running in the green.",
-      noteMid: "Balance is near zero. A bit more buffer would help.",
-      noteBad: "Balance is negative. Yearly outflow should be reduced.",
-    };
-  }, [language]);
+      hero:
+        language === "uk"
+          ? "Чистий денний баланс"
+          : language === "de"
+          ? "Netto-Tagesbilanz"
+          : "Net daily balance",
+      capital: t(language, "capital"),
+      passiveIncome:
+        language === "uk"
+          ? "Пасивний дохід"
+          : language === "de"
+          ? "Passives Einkommen"
+          : "Passive income",
+      activeIncome:
+        language === "uk"
+          ? "Активний дохід"
+          : language === "de"
+          ? "Aktives Einkommen"
+          : "Active income",
+      activeExpenses:
+        language === "uk"
+          ? "Активні витрати"
+          : language === "de"
+          ? "Aktive Ausgaben"
+          : "Active expenses",
+      liabilities: t(language, "liabilities"),
+      yearly:
+        language === "uk"
+          ? "за рік"
+          : language === "de"
+          ? "pro Jahr"
+          : "per year",
+      financialBase:
+        language === "uk"
+          ? "Фінансова база"
+          : language === "de"
+          ? "Finanzielle Basis"
+          : "Financial base",
+      breakdown:
+        language === "uk"
+          ? "Структура доходу"
+          : language === "de"
+          ? "Einkommensstruktur"
+          : "Income structure",
+      staking:
+        language === "uk"
+          ? "Стейкінг"
+          : language === "de"
+          ? "Staking"
+          : "Staking",
+      deposits: t(language, "deposits"),
+      other:
+        language === "uk"
+          ? "Інше"
+          : language === "de"
+          ? "Sonstiges"
+          : "Other",
+      inflow: t(language, "inflow"),
+      outflow: t(language, "outflow"),
+      status:
+        language === "uk"
+          ? "Стан"
+          : language === "de"
+          ? "Status"
+          : "Status",
+      stable:
+        language === "uk"
+          ? "Стабільно"
+          : language === "de"
+          ? "Stabil"
+          : "Stable",
+      warning:
+        language === "uk"
+          ? "Увага"
+          : language === "de"
+          ? "Achtung"
+          : "Warning",
+      strong:
+        language === "uk"
+          ? "Сильна позиція"
+          : language === "de"
+          ? "Starke Position"
+          : "Strong position",
+      noteGood:
+        language === "uk"
+          ? "Баланс позитивний. Система працює в плюс."
+          : language === "de"
+          ? "Die Bilanz ist positiv. Das System arbeitet im Plus."
+          : "Balance is positive. The system is running in the green.",
+      noteMid:
+        language === "uk"
+          ? "Баланс близький до нуля. Варто трохи посилити запас."
+          : language === "de"
+          ? "Die Bilanz liegt nahe null. Ein kleiner Puffer wäre gut."
+          : "Balance is near zero. A bit more buffer would help.",
+      noteBad:
+        language === "uk"
+          ? "Баланс негативний. Потрібно зменшити річний відтік."
+          : language === "de"
+          ? "Die Bilanz ist negativ. Der jährliche Abfluss sollte reduziert werden."
+          : "Balance is negative. Yearly outflow should be reduced.",
+    }),
+    [language]
+  );
 
   const metrics = useMemo(() => {
     const netWorth = assets.reduce((sum: number, asset: any) => {
@@ -200,21 +270,43 @@ export default function OverviewScreen() {
 
   const statusText =
     metrics.dailyBalance > 5
-      ? t.strong
+      ? copy.strong
       : metrics.dailyBalance >= -5
-      ? t.stable
-      : t.warning;
+      ? copy.stable
+      : copy.warning;
 
   const noteText =
     metrics.dailyBalance > 5
-      ? t.noteGood
+      ? copy.noteGood
       : metrics.dailyBalance >= -5
-      ? t.noteMid
-      : t.noteBad;
+      ? copy.noteMid
+      : copy.noteBad;
 
   const flowTotal = Math.max(metrics.yearlyInflow + metrics.yearlyOutflow, 1);
   const inflowPercent = `${(metrics.yearlyInflow / flowTotal) * 100}%`;
   const outflowPercent = `${(metrics.yearlyOutflow / flowTotal) * 100}%`;
+  const chartHistory = history.slice(-20);
+
+  const dailyBalancePath = useMemo(
+    () =>
+      buildChartPath(
+        chartHistory.map((item: any) => toSafeNumber(item?.dailyBalance)),
+        320,
+        150
+      ),
+    [chartHistory]
+  );
+
+  const netWorthPath = useMemo(
+    () =>
+      buildChartPath(
+        chartHistory.map((item: any) => toSafeNumber(item?.netWorth)),
+        320,
+        150
+      ),
+    [chartHistory]
+  );
+
 
   return (
     <View style={styles.root}>
@@ -239,7 +331,7 @@ export default function OverviewScreen() {
           <View style={styles.heroGlowC} />
 
           <View style={styles.heroTopRow}>
-            <Text style={styles.badge}>{t.badge}</Text>
+            <Text style={styles.badge}>{copy.badge}</Text>
             <View style={styles.statusPill}>
               <View
                 style={[
@@ -251,14 +343,14 @@ export default function OverviewScreen() {
             </View>
           </View>
 
-          <Text style={styles.heroLabel}>{t.hero}</Text>
+          <Text style={styles.heroLabel}>{copy.hero}</Text>
           <Text style={[styles.heroValue, { color: balanceColor }]}>
             {formatMoney(metrics.dailyBalance, displayCurrency)}
           </Text>
 
           <View style={styles.heroMetaRow}>
             <View style={styles.miniMetric}>
-              <Text style={styles.miniMetricLabel}>{t.inflow}</Text>
+              <Text style={styles.miniMetricLabel}>{copy.inflow}</Text>
               <Text style={[styles.miniMetricValue, { color: POSITIVE }]}>
                 {formatMoney(metrics.yearlyInflow, displayCurrency)}
               </Text>
@@ -267,7 +359,7 @@ export default function OverviewScreen() {
             <View style={styles.miniMetricDivider} />
 
             <View style={styles.miniMetric}>
-              <Text style={styles.miniMetricLabel}>{t.outflow}</Text>
+              <Text style={styles.miniMetricLabel}>{copy.outflow}</Text>
               <Text style={[styles.miniMetricValue, { color: NEGATIVE }]}>
                 {formatMoney(metrics.yearlyOutflow, displayCurrency)}
               </Text>
@@ -279,93 +371,169 @@ export default function OverviewScreen() {
             <View style={[styles.flowOut, { width: outflowPercent }]} />
           </View>
         </View>
-
-        <View style={styles.capitalCard}>
+<View style={styles.capitalCard}>
           <View style={styles.capitalGlowBlue} />
           <View style={styles.capitalGlowGreen} />
           <View style={styles.capitalGlowPink} />
-          <Text style={styles.capitalLabel}>{t.capital}</Text>
+          <Text style={styles.capitalLabel}>{copy.capital}</Text>
           <Text style={styles.capitalValue}>
             {formatMoney(metrics.netWorth, displayCurrency)}
           </Text>
-          <Text style={styles.capitalSub}>{t.financialBase}</Text>
+          <Text style={styles.capitalSub}>{copy.financialBase}</Text>
         </View>
 
         <View style={styles.grid}>
           <View style={styles.statCard}>
-            <Text style={styles.statLabel}>{t.passiveIncome}</Text>
+            <Text style={styles.statLabel}>{copy.passiveIncome}</Text>
             <Text style={[styles.statValue, styles.greenText]}>
               {formatMoney(metrics.totalPassiveIncome, displayCurrency)}
             </Text>
-            <Text style={styles.statSub}>{t.yearly}</Text>
+            <Text style={styles.statSub}>{copy.yearly}</Text>
           </View>
 
           <View style={styles.statCard}>
-            <Text style={styles.statLabel}>{t.activeIncome}</Text>
+            <Text style={styles.statLabel}>{copy.activeIncome}</Text>
             <Text style={[styles.statValue, styles.greenText]}>
               {formatMoney(toSafeNumber(activeIncomePerYear), displayCurrency)}
             </Text>
-            <Text style={styles.statSub}>{t.yearly}</Text>
+            <Text style={styles.statSub}>{copy.yearly}</Text>
           </View>
 
           <View style={styles.statCard}>
-            <Text style={styles.statLabel}>{t.activeExpenses}</Text>
+            <Text style={styles.statLabel}>{copy.activeExpenses}</Text>
             <Text style={[styles.statValue, styles.redText]}>
               {formatMoney(toSafeNumber(activeExpensesPerYear), displayCurrency)}
             </Text>
-            <Text style={styles.statSub}>{t.yearly}</Text>
+            <Text style={styles.statSub}>{copy.yearly}</Text>
           </View>
 
           <View style={styles.statCard}>
-            <Text style={styles.statLabel}>{t.liabilities}</Text>
+            <Text style={styles.statLabel}>{copy.liabilities}</Text>
             <Text style={[styles.statValue, styles.redText]}>
               {formatMoney(metrics.liabilitiesPerYear, displayCurrency)}
             </Text>
-            <Text style={styles.statSub}>{t.yearly}</Text>
+            <Text style={styles.statSub}>{copy.yearly}</Text>
           </View>
         </View>
 
-        <View style={styles.panel}>
-          <View style={styles.panelGlow} />
-          <View style={styles.panelHeader}>
-            <Text style={styles.panelTitle}>{t.breakdown}</Text>
-            <Text style={styles.panelHint}>{t.yearly}</Text>
+        {showAnalytics ? (
+          <>
+            <View style={styles.panel}>
+              <View style={styles.panelGlow} />
+              <View style={styles.panelHeader}>
+                <Text style={styles.panelTitle}>{copy.breakdown}</Text>
+                <Pressable
+                  onPress={() => setShowAnalytics((v) => !v)}
+                  style={styles.analyticsToggle}
+                >
+                  <Text style={styles.analyticsToggleText}>▾</Text>
+                </Pressable>
+              </View>
+
+              <View style={styles.dataRow}>
+                <View style={styles.dataRowLeft}>
+                  <View style={[styles.lineDot, { backgroundColor: POSITIVE }]} />
+                  <Text style={styles.dataRowLabel}>{copy.staking}</Text>
+                </View>
+                <Text style={[styles.dataRowValue, styles.greenText]}>
+                  {formatMoney(metrics.stakingIncome, displayCurrency)}
+                </Text>
+              </View>
+
+              <View style={styles.dataRow}>
+                <View style={styles.dataRowLeft}>
+                  <View style={[styles.lineDot, { backgroundColor: ACCENT }]} />
+                  <Text style={styles.dataRowLabel}>{copy.deposits}</Text>
+                </View>
+                <Text style={styles.dataRowValue}>
+                  {formatMoney(metrics.depositIncome, displayCurrency)}
+                </Text>
+              </View>
+
+              <View style={styles.dataRow}>
+                <View style={styles.dataRowLeft}>
+                  <View style={[styles.lineDot, { backgroundColor: CYAN }]} />
+                  <Text style={styles.dataRowLabel}>{copy.other}</Text>
+                </View>
+                <Text style={styles.dataRowValue}>
+                  {formatMoney(metrics.otherPassiveIncome, displayCurrency)}
+                </Text>
+              </View>
+            </View>
+          </>
+        ) : (
+          <View style={styles.panel}>
+            <View style={styles.panelGlow} />
+            <View style={styles.panelHeader}>
+              <Text style={styles.panelTitle}>{copy.breakdown}</Text>
+              <Pressable
+                onPress={() => setShowAnalytics((v) => !v)}
+                style={styles.analyticsToggle}
+              >
+                <Text style={styles.analyticsToggleText}>▸</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+
+        {showAnalytics ? (
+        <View style={styles.chartCard}>
+          <View style={styles.chartCardHeader}>
+            <Text style={styles.chartTitle}>Статистика</Text>
+            <Text style={styles.chartHint}>Денний баланс</Text>
           </View>
 
-          <View style={styles.dataRow}>
-            <View style={styles.dataRowLeft}>
-              <View style={[styles.lineDot, { backgroundColor: POSITIVE }]} />
-              <Text style={styles.dataRowLabel}>{t.staking}</Text>
-            </View>
-            <Text style={[styles.dataRowValue, styles.greenText]}>
-              {formatMoney(metrics.stakingIncome, displayCurrency)}
-            </Text>
-          </View>
+          <Svg width="100%" height="150" viewBox="0 0 320 150">
+            <Path d="M 10 20 L 310 20" stroke="rgba(148,163,184,0.10)" strokeWidth="1" fill="none" />
+            <Path d="M 10 50 L 310 50" stroke="rgba(148,163,184,0.10)" strokeWidth="1" fill="none" />
+            <Path d="M 10 80 L 310 80" stroke="rgba(148,163,184,0.10)" strokeWidth="1" fill="none" />
+            <Path d="M 10 110 L 310 110" stroke="rgba(148,163,184,0.10)" strokeWidth="1" fill="none" />
+            <Path d="M 10 140 L 310 140" stroke="rgba(148,163,184,0.16)" strokeWidth="1" fill="none" />
 
-          <View style={styles.dataRow}>
-            <View style={styles.dataRowLeft}>
-              <View style={[styles.lineDot, { backgroundColor: ACCENT }]} />
-              <Text style={styles.dataRowLabel}>{t.deposits}</Text>
-            </View>
-            <Text style={styles.dataRowValue}>
-              {formatMoney(metrics.depositIncome, displayCurrency)}
-            </Text>
-          </View>
+            <Path d="M 10 20 L 10 140" stroke="rgba(148,163,184,0.08)" strokeWidth="1" fill="none" />
+            <Path d="M 85 20 L 85 140" stroke="rgba(148,163,184,0.08)" strokeWidth="1" fill="none" />
+            <Path d="M 160 20 L 160 140" stroke="rgba(148,163,184,0.08)" strokeWidth="1" fill="none" />
+            <Path d="M 235 20 L 235 140" stroke="rgba(148,163,184,0.08)" strokeWidth="1" fill="none" />
+            <Path d="M 310 20 L 310 140" stroke="rgba(148,163,184,0.08)" strokeWidth="1" fill="none" />
 
-          <View style={styles.dataRow}>
-            <View style={styles.dataRowLeft}>
-              <View style={[styles.lineDot, { backgroundColor: CYAN }]} />
-              <Text style={styles.dataRowLabel}>{t.other}</Text>
-            </View>
-            <Text style={styles.dataRowValue}>
-              {formatMoney(metrics.otherPassiveIncome, displayCurrency)}
-            </Text>
+            <>
+              <Path d={dailyBalancePath} stroke="rgba(34,197,94,0.25)" strokeWidth="6" fill="none" />
+              <Path d={dailyBalancePath} stroke="#22C55E" strokeWidth="2.5" fill="none" />
+            </>
+            {showNetWorth ? (
+              <>
+                <Path d={netWorthPath} stroke="rgba(96,165,250,0.25)" strokeWidth="6" fill="none" />
+                <Path d={netWorthPath} stroke="#60A5FA" strokeWidth="2.5" fill="none" />
+              </>
+            ) : null}
+          </Svg>
+
+          <View style={styles.chartToggles}>
+            <Pressable
+              onPress={() => setShowNetWorth((v) => !v)}
+              style={styles.toggleOption}
+            >
+              <Text style={styles.toggleCheckbox}>
+                {showNetWorth ? "☑" : "☐"}
+              </Text>
+              <Text style={styles.toggleText}>Капітал</Text>
+            </Pressable>
+
+            <Pressable
+              onPress={() => setShowPassive((v) => !v)}
+              style={styles.toggleOption}
+            >
+              <Text style={styles.toggleCheckbox}>
+                {showPassive ? "☑" : "☐"}
+              </Text>
+              <Text style={styles.toggleText}>Пасивний дохід</Text>
+            </Pressable>
           </View>
         </View>
-
+        ) : null}
         <View style={styles.noteCard}>
           <View style={styles.noteGlow} />
-          <Text style={styles.noteTitle}>{t.status}</Text>
+          <Text style={styles.noteTitle}>{copy.status}</Text>
           <Text style={styles.noteText}>{noteText}</Text>
         </View>
       </ScrollView>
@@ -374,6 +542,60 @@ export default function OverviewScreen() {
 }
 
 const styles = StyleSheet.create({
+  chartCard: {
+    backgroundColor: "rgba(10, 14, 28, 0.7)",
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "rgba(148,163,184,0.12)",
+    padding: 16,
+  },
+  chartTitle: {
+    color: "#F8FAFC",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  chartCardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  chartHint: {
+    color: "#94A3B8",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  chartToggles: {
+    marginTop: 10,
+    gap: 10,
+  },
+  toggleOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 2,
+  },
+  toggleCheckbox: {
+    color: "#BFDBFE",
+    fontSize: 15,
+    fontWeight: "800",
+    width: 20,
+  },
+  toggleRow: {
+    paddingVertical: 4,
+  },
+  toggleRowDisabled: {
+    opacity: 0.45,
+  },
+  toggleText: {
+    color: "#C7D2E3",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  toggleTextDisabled: {
+    color: "#64748B",
+  },
   root: {
     flex: 1,
     backgroundColor: BG,
@@ -499,8 +721,22 @@ const styles = StyleSheet.create({
   heroTopRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "flex-start",
     marginBottom: 18,
+  },
+  analyticsToggle: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: "rgba(12, 18, 34, 0.78)",
+    borderWidth: 1,
+    borderColor: BORDER_SOFT,
+  },
+  analyticsToggleText: {
+    color: "#BFDBFE",
+    fontSize: 16,
+    fontWeight: "800",
+    lineHeight: 16,
   },
   badge: {
     color: "#A5D8FF",

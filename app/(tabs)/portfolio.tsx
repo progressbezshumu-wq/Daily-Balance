@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -59,6 +59,12 @@ function pct(v: number) {
   return `${toSafeNumber(v).toFixed(1)}%`;
 }
 
+function formatQty(v: number) {
+  const n = toSafeNumber(v);
+  if (Number.isInteger(n)) return String(n);
+  return n.toFixed(2).replace(/\.00$/, "").replace(/(\.\d)0$/, "$1");
+}
+
 type CollapsibleProps = {
   title: string;
   defaultOpen?: boolean;
@@ -100,46 +106,79 @@ type DonutSegment = {
 
 function PortfolioDonut({
   segments,
+  activeSlice,
+  onPressSlice,
+  currency,
 }: {
   segments: DonutSegment[];
+  activeSlice?: string | null;
+  onPressSlice?: (key: string | null) => void;
+  currency: string;
 }) {
-  const size = 240;
-  const cx = 120;
+  const size = 248;
+  const cx = 124;
   const cy = 116;
-  const r = 82;
-  const depth = 10;
+  const r = 84;
+  const depth = 16;
 
-  let angleCursor = 0;
+  let baseAngleCursor = 0;
+  let topAngleCursor = 0;
 
   return (
     <View style={styles.donutWrap}>
-      <Svg width={size} height={size + depth}>
+      <Svg width={size} height={size + depth + 8}>
         <Circle
           cx={cx}
-          cy={cy + depth}
-          r={r}
-          fill="rgba(8,12,22,0.95)"
+          cy={cy + depth + 2}
+          r={r + 2}
+          fill="rgba(3,7,18,0.96)"
         />
 
         <Circle
           cx={cx}
-          cy={cy + depth}
-          r={r}
+          cy={cy + depth + 2}
+          r={r + 2}
           fill="none"
-          stroke="rgba(255,255,255,0.04)"
+          stroke="rgba(255,255,255,0.03)"
           strokeWidth="2"
         />
 
         {segments.map((seg) => {
           const sweep = (seg.share / 100) * 360;
-          const startAngle = angleCursor;
-          const endAngle = angleCursor + sweep;
-          angleCursor = endAngle;
+          const startAngle = baseAngleCursor;
+          const endAngle = baseAngleCursor + sweep;
+          baseAngleCursor = endAngle;
+
+          return (
+            <Path
+              key={`${seg.key}-base`}
+              d={describePieSlice(cx, cy + depth, r, startAngle, endAngle)}
+              fill="rgba(8,12,22,0.92)"
+            />
+          );
+        })}
+
+        {segments.map((seg) => {
+          const sweep = (seg.share / 100) * 360;
+          const startAngle = topAngleCursor;
+          const endAngle = topAngleCursor + sweep;
+          topAngleCursor = endAngle;
+
+          const isActive = activeSlice === seg.key;
+          const offset = isActive ? 16 : 0;
+          const activeR = isActive ? r + 10 : r;
+
+          const midAngle = (startAngle + endAngle) / 2;
+          const rad = (midAngle - 90) * Math.PI / 180;
+
+          const dx = Math.cos(rad) * offset;
+          const dy = Math.sin(rad) * offset;
 
           return (
             <Path
               key={seg.key}
-              d={describePieSlice(cx, cy, r, startAngle, endAngle)}
+              onPress={() => onPressSlice && onPressSlice(seg.key)}
+              d={describePieSlice(cx + dx, cy + dy, activeR, startAngle, endAngle)}
               fill={seg.color}
             />
           );
@@ -150,10 +189,32 @@ function PortfolioDonut({
           cy={cy}
           r={r}
           fill="none"
-          stroke="rgba(255,255,255,0.06)"
+          stroke="rgba(255,255,255,0.08)"
           strokeWidth="2"
         />
+
+        <Circle
+          cx={cx}
+          cy={cy - 1}
+          r={r - 22}
+          fill="rgba(255,255,255,0.03)"
+        />
       </Svg>
+
+        {activeSlice ? (
+          (() => {
+            const item = segments.find((seg) => seg.key === activeSlice);
+            if (!item) return null;
+
+            return (
+              <View style={styles.sliceInfo}>
+                <Text style={styles.sliceInfoTitle}>{item.label}</Text>
+                <Text style={styles.sliceInfoText}>{pct(item.share)}</Text>
+                <Text style={styles.sliceInfoText}>{format(item.value, currency)}</Text>
+              </View>
+            );
+          })()
+        ) : null}
     </View>
   );
 }
@@ -167,6 +228,38 @@ export default function PortfolioScreen() {
 
   const language = useSettingsStore((s) => s.language) ?? "en";
   const currency = useSettingsStore((s) => s.displayCurrency) ?? "EUR";
+  const [visibleQtyKey, setVisibleQtyKey] = useState<string | null>(null);
+  const [activeSlice, setActiveSlice] = useState<string | null>(null);
+  const qtyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTapRef = useRef<{ key: string; time: number } | null>(null);
+
+  const clearQtyTimer = () => {
+    if (qtyTimerRef.current) {
+      clearTimeout(qtyTimerRef.current);
+      qtyTimerRef.current = null;
+    }
+  };
+
+  const showQtyBubble = (key: string, autoHide = false) => {
+    clearQtyTimer();
+    setVisibleQtyKey(key);
+
+    if (autoHide) {
+      qtyTimerRef.current = setTimeout(() => {
+        setVisibleQtyKey((current) => (current === key ? null : current));
+        qtyTimerRef.current = null;
+      }, 3500);
+    }
+  };
+
+  const hideQtyBubble = (key?: string) => {
+    clearQtyTimer();
+    setVisibleQtyKey((current) => {
+      if (!key) return null;
+      return current === key ? null : current;
+    });
+  };
+
 
   const copy =
     language === "uk"
@@ -227,6 +320,12 @@ export default function PortfolioScreen() {
   useEffect(() => {
     recordTodaySnapshot();
   }, [assets, activeIncomePerYear, activeExpensesPerYear, recordTodaySnapshot]);
+  useEffect(() => {
+    return () => {
+      clearQtyTimer();
+    };
+  }, []);
+
 
   const assetRows = useMemo(() => {
     return assets.map((asset) => {
@@ -267,13 +366,14 @@ export default function PortfolioScreen() {
   const profitColor = profit >= 0 ? "#22C55E" : "#EF4444";
 
   const distributionColors = [
-    "#3B82F6",
-    "#A855F7",
-    "#FB7185",
-    "#22C55E",
-    "#F59E0B",
-    "#06B6D4",
-    "#8B5CF6",
+    "#FF3B30", // red
+    "#FF9500", // orange
+    "#FFCC00", // yellow
+    "#34C759", // green
+    "#00C7BE", // teal
+    "#007AFF", // blue
+    "#5856D6", // indigo
+    "#AF52DE", // purple
   ];
 
   const distribution = useMemo(() => {
@@ -333,68 +433,158 @@ export default function PortfolioScreen() {
           <View style={styles.heroChartRow}>
             <PortfolioDonut
               segments={donutSegments}
+              activeSlice={activeSlice}
+              onPressSlice={setActiveSlice}
+              currency={currency}
             />
 
             <View style={styles.heroLegend}>
-              {distribution.slice(0, 5).map((item, index) => (
-                <View key={`${item.id}-legend-${index}`} style={styles.heroLegendRow}>
-                  <View
-                    style={[
-                      styles.heroLegendDot,
-                      { backgroundColor: item.color },
-                    ]}
-                  />
-                  <View style={styles.heroLegendTextWrap}>
-                    <Text style={styles.heroLegendTicker} numberOfLines={1}>
-                      {item.symbol || item.name}
-                    </Text>
-                    <Text style={styles.heroLegendPercent}>
-                      {pct(item.share)}
-                    </Text>
-                  </View>
-                </View>
-              ))}
+              {distribution.slice(0, 5).map((item, index) => {
+                const itemKey = `legend-${item.id}-${index}`;
+
+                return (
+                  <Pressable
+                    key={itemKey}
+                    style={styles.heroLegendRow}
+                    onPressIn={() => {
+                      setActiveSlice(item.id);
+                      showQtyBubble(itemKey, false);
+                    }}
+                    onPressOut={() => hideQtyBubble(itemKey)}
+                    onPress={() => {
+                      setActiveSlice((current) => (current === item.id ? null : item.id));
+                      const now = Date.now();
+                      const lastTap = lastTapRef.current;
+
+                      if (
+                        lastTap &&
+                        lastTap.key === itemKey &&
+                        now - lastTap.time < 300
+                      ) {
+                        hideQtyBubble(itemKey);
+                        lastTapRef.current = null;
+                        return;
+                      }
+
+                      lastTapRef.current = { key: itemKey, time: now };
+                      showQtyBubble(itemKey, true);
+                    }}
+                  >
+                    <View
+                      style={[
+                        styles.heroLegendDot,
+                        { backgroundColor: item.color },
+                      ]}
+                    />
+                    <View style={styles.heroLegendTextWrap}>
+                      <Text style={styles.heroLegendTicker} numberOfLines={1}>
+                        {item.symbol || item.name}
+                      </Text>
+                      <Text style={styles.heroLegendPercent}>
+                        {pct(item.share)}
+                      </Text>
+                    </View>
+
+                    {visibleQtyKey === itemKey ? (
+                      <View style={styles.qtyBubble}>
+                        <Text style={styles.qtyBubbleLabel}>{copy.qty}</Text>
+                        <Text style={styles.qtyBubbleValue}>
+                          {formatQty(item.quantity)}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </Pressable>
+                );
+              })}
             </View>
           </View>
         </View>
 
         <CollapsibleSection title={copy.distribution} defaultOpen>
-          <View style={styles.distributionBar}>
-            {distribution.map((item, index) => (
-              <View
-                key={`${item.id}-bar-${index}`}
-                style={{
-                  width: `${item.share}%`,
-                  backgroundColor: item.color,
-                  height: 18,
-                }}
-              />
-            ))}
+          <View style={styles.distributionBarShell}>
+            <View style={styles.distributionBar}>
+              {distribution.map((item, index) => (
+                <View
+                  key={`${item.id}-bar-${index}`}
+                  style={[
+                    styles.distributionBarSegment,
+                    {
+                      width: `${item.share}%`,
+                      backgroundColor: item.color,
+                    },
+                  ]}
+                />
+              ))}
+            </View>
           </View>
 
           <View style={styles.distributionList}>
-            {distribution.map((item, index) => (
-              <View key={`${item.id}-${index}`} style={styles.distributionRow}>
-                <View style={styles.distributionLeft}>
-                  <View
-                    style={[
-                      styles.distributionDot,
-                      {
-                        backgroundColor: item.color,
-                      },
-                    ]}
-                  />
-                  <View>
-                    <Text style={styles.distributionName}>
-                      {item.symbol || item.name}
-                    </Text>
-                    <Text style={styles.distributionPercent}>{pct(item.share)}</Text>
-                  </View>
-                </View>
+            {distribution.map((item, index) => {
+              const itemKey = `distribution-${item.id}-${index}`;
 
-                <Text style={styles.distributionValue}>{format(item.value, currency)}</Text>
-              </View>
-            ))}
+              return (
+                <Pressable
+                  key={itemKey}
+                  style={styles.distributionRow}
+                  onPressIn={() => {
+                    setActiveSlice(item.id);
+                    showQtyBubble(itemKey, false);
+                  }}
+                  onPressOut={() => hideQtyBubble(itemKey)}
+                  onPress={() => {
+                    setActiveSlice((current) => (current === item.id ? null : item.id));
+                    const now = Date.now();
+                    const lastTap = lastTapRef.current;
+
+                    if (
+                      lastTap &&
+                      lastTap.key === itemKey &&
+                      now - lastTap.time < 300
+                    ) {
+                      hideQtyBubble(itemKey);
+                      lastTapRef.current = null;
+                      return;
+                    }
+
+                    lastTapRef.current = { key: itemKey, time: now };
+                    showQtyBubble(itemKey, true);
+                  }}
+                >
+                  <View style={styles.distributionLeft}>
+                    <View
+                      style={[
+                        styles.distributionDot,
+                        {
+                          backgroundColor: item.color,
+                        },
+                      ]}
+                    />
+                    <View>
+                      <Text style={styles.distributionName}>
+                        {item.symbol || item.name}
+                      </Text>
+                      <Text style={styles.distributionPercent}>{pct(item.share)}</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.distributionRight}>
+                    <Text style={styles.distributionValue}>{format(item.value, currency)}</Text>
+                    <Text style={styles.distributionSubValue}>
+                      {copy.invested}: {format(item.buyValue, currency)}
+                    </Text>
+                  </View>
+
+                  {visibleQtyKey === itemKey ? (
+                    <View style={styles.qtyBubble}>
+                      <Text style={styles.qtyBubbleLabel}>{copy.qty}</Text>
+                      <Text style={styles.qtyBubbleValue}>
+                        {formatQty(item.quantity)}
+                      </Text>
+                    </View>
+                  ) : null}
+                </Pressable>
+              );
+            })}
           </View>
         </CollapsibleSection>
 
@@ -529,8 +719,8 @@ const styles = StyleSheet.create({
     width: "58%",
     alignItems: "flex-start",
     justifyContent: "center",
-    paddingBottom: 12,
-    marginLeft: -8,
+    paddingBottom: 14,
+    marginLeft: -10,
   },
   heroLegend: {
     width: "38%",
@@ -540,6 +730,8 @@ const styles = StyleSheet.create({
   heroLegendRow: {
     flexDirection: "row",
     alignItems: "center",
+    position: "relative",
+    paddingVertical: 4,
   },
   heroLegendDot: {
     width: 10,
@@ -552,14 +744,16 @@ const styles = StyleSheet.create({
   },
   heroLegendTicker: {
     color: "#F8FAFC",
-    fontSize: 13,
-    fontWeight: "700",
+    fontSize: 14,
+    fontWeight: "800",
+    letterSpacing: 0.2,
   },
   heroLegendPercent: {
-    marginTop: 2,
-    color: "#94A3B8",
+    marginTop: 3,
+    color: "#A5B4CC",
     fontSize: 12,
-    fontWeight: "600",
+    fontWeight: "700",
+    lineHeight: 16,
   },
   card: {
     backgroundColor: "#0b1220",
@@ -580,25 +774,40 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: "#F8FAFC",
   },
+  distributionBarShell: {
+    marginBottom: 16,
+    padding: 4,
+    borderRadius: 14,
+    backgroundColor: "rgba(15,23,42,0.78)",
+    borderWidth: 1,
+    borderColor: "rgba(148,163,184,0.12)",
+  },
   distributionBar: {
     width: "100%",
     flexDirection: "row",
-    marginBottom: 14,
     overflow: "hidden",
-    borderRadius: 8,
+    borderRadius: 10,
+    height: 20,
+    backgroundColor: "rgba(2,6,23,0.88)",
+  },
+  distributionBarSegment: {
+    height: "100%",
   },
   distributionList: {
-    gap: 12,
+    gap: 14,
+    marginTop: 4,
   },
   distributionRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    paddingVertical: 10,
+    position: "relative",
   },
   distributionLeft: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 12,
   },
   distributionDot: {
     width: 10,
@@ -607,18 +816,73 @@ const styles = StyleSheet.create({
   },
   distributionName: {
     color: "#F8FAFC",
-    fontSize: 16,
-    fontWeight: "700",
+    fontSize: 15,
+    fontWeight: "800",
+    letterSpacing: 0.2,
   },
   distributionPercent: {
-    color: "#94A3B8",
+    color: "#A5B4CC",
     fontSize: 12,
-    marginTop: 2,
+    marginTop: 3,
+    fontWeight: "700",
+    lineHeight: 16,
+  },
+  distributionRight: {
+    alignItems: "flex-end",
+    gap: 2,
   },
   distributionValue: {
     color: "#F8FAFC",
     fontSize: 16,
     fontWeight: "700",
+  },
+  distributionSubValue: {
+    color: "#94A3B8",
+    fontSize: 12,
+    marginTop: 2,
+    fontWeight: "600",
+  },
+  qtyBubble: {
+    position: "absolute",
+    right: 0,
+    top: -8,
+    backgroundColor: "rgba(20,24,40,0.75)",
+    borderWidth: 1,
+    borderColor: "rgba(148,163,184,0.18)",
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 8,
+    minWidth: 70,
+  },
+  qtyBubbleLabel: {
+    color: "#94A3B8",
+    fontSize: 9,
+    fontWeight: "600",
+    marginBottom: 2,
+  },
+  qtyBubbleValue: {
+    color: "#F8FAFC",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  sliceInfo: {
+    position: "absolute",
+    bottom: 10,
+    left: 10,
+    backgroundColor: "rgba(15,23,42,0.9)",
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  sliceInfoTitle: {
+    color: "#F8FAFC",
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  sliceInfoText: {
+    color: "#94A3B8",
+    fontSize: 11,
+    marginTop: 2,
   },
   emptyText: {
     color: "#94A3B8",
